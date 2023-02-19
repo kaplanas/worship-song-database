@@ -3,5 +3,6 @@ manage.hymnologists = tabPanel(
   DTOutput("manage_hymnologists"),
   actionButton("add_hymnologist", label = "Add hymnologist",
                icon = icon("plus")),
+  actionButton("delete_hymnologist", label = "Delete hymnologist"),
   actionButton("save_hymnologists", label = "Save changes")
 )
