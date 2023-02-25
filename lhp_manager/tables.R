@@ -5,16 +5,13 @@ manage.hymnologists.info = list(
                     "Created", "Updated"),
     editable = c(F, T, T, F, F, F)
   ),
-  sort = list(list(1, "asc"), list(2, "asc")),
+  sort = c("LastName", "FirstName"),
   key = "HymnologistID"
 )
 
 manage.hymnologists = tabPanel(
   "Manage hymnologists",
-  DTOutput("manage_hymnologists"),
-  actionButton("add_hymnologists", label = "Add hymnologist",
-               icon = icon("plus")),
-  actionButton("delete_hymnologists", label = "Delete hymnologist"),
+  rHandsontableOutput("hymnologists"),
   actionButton("save_hymnologists", label = "Save changes")
 )
 

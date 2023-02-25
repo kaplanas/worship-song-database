@@ -3,7 +3,6 @@ library(shinyjs)
 library(RMySQL)
 library(tidyverse)
 library(date)
-library(DT)
 library(glue)
 library(readxl)
 library(aws.s3)
@@ -16,59 +15,42 @@ library(rhandsontable)
 source("tables.R", local = T)
 source("returns.R", local = T)
 
-# Table info
-table.info = list(manage_hymnologists = manage.hymnologists.info)
-populate.table.sql = map(
-  table.info,
-  function(table.info) {
-    sql = paste(table.info$columns$column.name, collapse = ", ")
-    sql = paste("SELECT", sql, "FROM", table.info$table)
-    return(sql)
-  }
-)
-update.table.sql = map(
-  table.info,
-  function(table.info) {
-    sql = table.info$columns %>%
+# Management tables
+manage.table.info = list(hymnologists = manage.hymnologists.info)
+for(manage.table in names(manage.table.info)) {
+  manage.info = manage.table.info[[manage.table]]
+  sql = paste(manage.info$columns$column.name, collapse = ", ")
+  sql = paste("SELECT ", sql, " FROM ", manage.info$table, " ORDER BY ",
+              paste(manage.info$sort, collapse = ", "), sep = "")
+  manage.table.info[[manage.table]]$populate_sql = sql
+  sql = manage.info$columns %>%
+    filter(editable) %>%
+    mutate(update = paste(column.name, " = {", column.name, "}",
+                          sep = "")) %>%
+    pull(update) %>%
+    paste(collapse = ", ") %>%
+    paste("UPDATE ", manage.info$table, " SET ", ., " WHERE ", manage.info$key,
+          " = {", manage.info$key, "}", sep = "")
+  manage.table.info[[manage.table]]$update_sql = sql
+  sql = paste(
+    "INSERT INTO ", manage.info$table, "(",
+    manage.info$columns %>%
       filter(editable) %>%
-      mutate(update = paste(column.name, " = {", column.name, "}",
-                            sep = "")) %>%
-      pull(update) %>%
-      paste(collapse = ", ") %>%
-      paste("UPDATE ", table.info$table, " SET ", ., " WHERE ", table.info$key,
-            " = {", table.info$key, "}", sep = "")
-    return(sql)
-  }
-)
-insert.table.sql = map(
-  table.info,
-  function(table.info) {
-    sql = paste(
-      "INSERT INTO ", table.info$table, "(",
-      table.info$columns %>%
-        filter(editable) %>%
-        pull(column.name) %>%
-        paste(collapse = ", "),
-      ") VALUES (",
-      table.info$columns %>%
-        filter(editable) %>%
-        mutate(column.name = paste("{", column.name, "}", sep = "")) %>%
-        pull(column.name) %>%
-        paste(collapse = ", "),
-      ")", sep = ""
-    )
-    return(sql)
-  }
-)
-delete.table.sql = map(
-  table.info,
-  function(table.info) {
-    sql = paste("DELETE FROM ", table.info$table, " WHERE ", table.info$key,
-                " NOT IN ({keys*})", sep = "")
-    return(sql)
-  }
-)
-edit.buttons = list(manage_hymnologists = "hymnologists")
+      pull(column.name) %>%
+      paste(collapse = ", "),
+    ") VALUES (",
+    manage.info$columns %>%
+      filter(editable) %>%
+      mutate(column.name = paste("{", column.name, "}", sep = "")) %>%
+      pull(column.name) %>%
+      paste(collapse = ", "),
+    ")", sep = ""
+  )
+  manage.table.info[[manage.table]]$insert_sql = sql
+  sql = paste("DELETE FROM ", manage.info$table, " WHERE ", manage.info$key,
+              " NOT IN ({keys*})", sep = "")
+  manage.table.info[[manage.table]]$delete_sql = sql
+}
 
 # Selector info
 selector.info = list(return_file_hymnologist = return.file.hymnologist.info,
@@ -76,9 +58,6 @@ selector.info = list(return_file_hymnologist = return.file.hymnologist.info,
 
 # Utility table info
 utility.table.info = list(song.labels = song.labels.info)
-
-# Process table info
-process.table.info = list(process_return = process.return.info)
 
 #### UI ####
 
@@ -107,15 +86,13 @@ server <- function(input, output, session) {
   
   # Keep track of reactive stuff
   tables = reactiveValues()
-  for(table.name in names(populate.table.sql)) {
-    tables[[table.name]] = NULL
+  for(manage.table in names(manage.table.info)) {
+    tables[[manage.table]] = NULL
   }
-  for(process.table.name in names(process.table.info)) {
-    tables[[process.table.name]] = NULL
+  for(utility.table in names(utility.table.info)) {
+    tables[[utility.table]] = NULL
   }
-  for(utility.table.name in names(utility.table.info)) {
-    tables[[utility.table.name]] = NULL
-  }
+  tables$process_return = NULL
   
   # When the user attempts to log in, attempt to create a connection and
   # populate the tables
@@ -144,61 +121,162 @@ server <- function(input, output, session) {
     # If connected, try to populate management tables; if a query fails, set the
     # content of the table to null
     if(!is.null(lhp.con())) {
-      for(table.name in names(populate.table.sql)) {
+      for(manage.table in names(manage.table.info)) {
+        manage.info = manage.table.info[[manage.table]]
         tryCatch(
           {
-            tables[[table.name]] = dbGetQuery(lhp.con(),
-                                              populate.table.sql[[table.name]])
+            tables[[manage.table]] = dbGetQuery(lhp.con(),
+                                                manage.info$populate_sql)
           },
           error = function(err) {
             print(err)
-            tables[[table.name]] = NULL
-            output[[table.name]] = renderDT(NULL)
+            print(manage.info$populate_sql)
+            tables[[manage.table]] = NULL
+            output[[manage.table]] = renderRHandsontable(NULL)
           },
           finally = {
-            if(!is.null(tables[[table.name]])) {
-              output[[table.name]] = renderDT(
-                datatable(tables[[table.name]], rownames = F,
-                          selection = list(mode = "single", target = "row"),
-                          editable = list(target = "row",
-                                          disable = list(columns =
-                                                           which(!table.info[[table.name]]$columns$editable) - 1)),
-                          options = list(paging = F, searching = F, info = F,
-                                         order = table.info[[table.name]]$sort)) %>%
-                  formatStyle(columns = which(!table.info[[table.name]]$columns$editable),
-                              backgroundColor = "lightgray")
+            if(!is.null(tables[[manage.table]])) {
+              output[[manage.table]] = renderRHandsontable(
+                rhandsontable(tables[[manage.table]], rowHeaders = F) %>%
+                  hot_cols(columnSorting = F) %>%
+                  hot_col(col = which(!manage.info$columns$editable),
+                          readOnly = T)
               )
             } else {
-              output[[table.name]] = renderDT(NULL)
+              output[[manage.table]] = renderRHandsontable(NULL)
             }
           }
         )
       }
     } else {
-      for(table.name in names(populate.table.sql)) {
-        tables[[table.name]] = NULL
-        output[[table.name]] = renderDT(NULL)
+      for(manage.table in names(manage.table.info)) {
+        tables[[manage.table]] = NULL
+        output[[manage.table]] = renderRHandsontable(NULL)
       }
+    }
+    
+    # When the user makes a change to the return processing table, update the
+    # underlying table accordingly
+    for(manage.table in names(manage.table.info)) {
+      manage.info = manage.table.info[[manage.table]]
+      observeEvent(input[[manage.table]], {
+        change = input[[manage.table]]$changes
+        if(change$event == "afterChange") {
+          if(!is.null(change$changes)) {
+            r = change$changes[[1]][[1]] + 1
+            c = change$changes[[1]][[2]] + 1
+            tables[[manage.table]][r,c] = change$changes[[1]][[4]]
+          }
+        } else if(change$event == "afterCreateRow") {
+          tables[[manage.table]][nrow(tables[[manage.table]]) + 1,] = NA
+        } else if(change$event == "afterRemoveRow") {
+          r = change$ind + 1
+          tables[[manage.table]] = tables[[manage.table]][-r,]
+        }
+      })
+    }
+    
+    # When the user clicks the "Save" button, attempt to write the table to the
+    # database
+    for(manage.table in names(manage.table.info)) {
+      observeEvent(input[[paste("save", manage.table, sep = "_")]], {
+        
+        # Info about this table
+        manage.info = manage.table.info[[manage.table]]
+        
+        # Keep track of whether all updates were successful
+        successful.updates = T
+        
+        # Create sql to update changed rows
+        sql = tables[[manage.table]] %>%
+          filter(!is.na(.data[[manage.info$key]])) %>%
+          glue_data_sql(manage.info$update_sql, .con = lhp.con())
+        
+        # Attempt to update changed rows
+        for(s in sql) {
+          tryCatch(
+            {
+              dbGetQuery(lhp.con(), s)
+            },
+            error = function(err) {
+              print(err)
+              successful.updates = F
+            }
+          )
+        }
+        
+        # Attempt to insert new rows
+        if(any(is.na(tables[[manage.table]][[manage.info$key]]))) {
+          sql = tables[[manage.table]] %>%
+            filter(is.na(.data[[manage.info$key]])) %>%
+            glue_data_sql(manage.info$insert_sql, .con = lhp.con())
+          for(s in sql) {
+            tryCatch(
+              {
+                dbGetQuery(lhp.con(), s)
+              },
+              error = function(err) {
+                print(err)
+                successful.updates = F
+              }
+            )
+          }
+        }
+        
+        # Create sql to delete rows
+        sql = glue_sql(manage.info$delete_sql,
+                       keys = tables[[manage.table]][[manage.info$key]],
+                       .con = lhp.con())
+        
+        # Attempt to delete rows
+        tryCatch(
+          {
+            dbGetQuery(lhp.con(), sql)
+          },
+          error = function(err) {
+            print(err)
+            successful.updates = F
+          }
+        )
+        
+        # If anything went wrong, display a notice
+        if(!successful.updates) {
+          showNotification("Some changes may not have been saved", type = "error")
+        }
+        
+        # Update table to reflect database
+        tryCatch(
+          {
+            tables[[manage.table]] = dbGetQuery(lhp.con(),
+                                                manage.info$populate_sql)
+          },
+          error = function(err) {
+            print(err)
+            tables[[manage.table]] = NULL
+          }
+        )
+        
+      })
     }
     
     # If connected, try to populate utility tables; if a query fails, set the
     # content of the table to null
     if(!is.null(lhp.con())) {
-      for(utility.table.name in names(utility.table.info)) {
+      for(utility.table in names(utility.table.info)) {
         tryCatch(
           {
-            tables[[utility.table.name]] = dbGetQuery(lhp.con(),
-                                                      utility.table.info[[utility.table.name]]$sql)
+            tables[[utility.table]] = dbGetQuery(lhp.con(),
+                                                 utility.table.info[[utility.table]]$sql)
           },
           error = function(err) {
             print(err)
-            tables[[utility.table.name]] = NULL
+            tables[[utility.table]] = NULL
           }
         )
       }
     } else {
-      for(utility.table.name in names(utility.table.info)) {
-        tables[[utility.table.name]] = NULL
+      for(utility.table in names(utility.table.info)) {
+        tables[[utility.table]] = NULL
       }
     }
     
@@ -226,166 +304,118 @@ server <- function(input, output, session) {
       }
     }
     
-    # If connected, try to populate processing tables; if a query fails, set the
+    # If connected, try to populate processing table; if a query fails, set the
     # content of the table to null
     if(!is.null(lhp.con())) {
-      for(process.table.name in names(process.table.info)) {
-        tryCatch(
-          {
-            sql = glue_sql(process.table.info[[process.table.name]]$select_sql,
-                           .con = lhp.con())
-            tables[[process.table.name]] = dbGetQuery(lhp.con(), sql)
-          },
-          error = function(err) {
-            print(err)
-            tables[[process.table.name]] = NULL
-            output[[process.table.name]] = renderRHandsontable(NULL)
-          },
-          finally = {
-            if(!is.null(tables[[process.table.name]])) {
-              output[[process.table.name]] = renderRHandsontable({
-                rhandsontable(tables[[process.table.name]] %>%
-                                mutate(Processed = Processed == 1) %>%
-                                dplyr::select(process.table.info[[process.table.name]]$displayed.cols),
-                              rowHeaders = NULL) %>%
-                  hot_cols(colWidths = c(300, 300, 70)) %>%
-                  hot_col(col = "Processed", type = "checkbox",
-                          halign = "htCenter") %>%
-                  hot_col(col = "Label", type = "dropdown", strict = T,
-                          renderer = "html", source = tables$song_labels$Label) %>%
-                  hot_col(col = "Label",
-                          renderer = htmlwidgets::JS("safeHtmlRenderer")) %>%
-                  hot_col(col = which(!(process.table.info[[process.table.name]]$displayed.cols
-                                        %in% process.table.info[[process.table.name]]$editable.cols)),
-                          readOnly = T)
-              })
-            } else {
-              output[[process.table.name]] = renderDT(NULL)
-            }
+      tryCatch(
+        {
+          sql = glue_sql(process.return.info$select_sql,
+                         .con = lhp.con())
+          tables$process_return = dbGetQuery(lhp.con(), sql)
+        },
+        error = function(err) {
+          print(err)
+          tables$process_return = NULL
+          output$process_return = renderRHandsontable(NULL)
+        },
+        finally = {
+          if(!is.null(tables$process_return)) {
+            output$process_return = renderRHandsontable(
+              rhandsontable(tables$process_return[,process.return.info$columns$displayed] %>%
+                              mutate(Processed = Processed == 1),
+                            rowHeaders = NULL) %>%
+                hot_context_menu(allowRowEdit = F, allowColEdit = F) %>%
+                hot_cols(colWidths = process.return.info$columns$width[process.return.info$columns$displayed],
+                         columnSorting = F) %>%
+                hot_col(col = "Processed", type = "checkbox",
+                        halign = "htCenter") %>%
+                hot_col(col = "Label", type = "dropdown", strict = T,
+                        renderer = "html", source = tables$song.labels$Label) %>%
+                hot_col(col = "Label",
+                        renderer = htmlwidgets::JS("safeHtmlRenderer")) %>%
+                hot_col(col = which(!process.return.info$columns$editable[process.return.info$columns$displayed]),
+                        readOnly = T)
+            )
+          } else {
+            output$process_return = renderRHandsontable(NULL)
           }
-        )
-      }
+        }
+      )
     } else {
-      for(process.table.name in names(process.table.info)) {
-        tables[[process.table.name]] = NULL
-        output[[process.table.name]] = renderRHandsontable(NULL)
-      }
+      tables$process_return = NULL
+      output$process_return = renderRHandsontable(NULL)
     }
 
   })
   
-  # When the user clicks an "Add" button, add a row to the table
-  for(table.name in names(edit.buttons)) {
-    observeEvent(input[[paste("add", edit.buttons[[table.name]], sep = "_")]], {
-      tables[[table.name]][nrow(tables[[table.name]]) + 1,] = NA
-    })
-  }
-  
-  # When the user clicks the "Delete" button, delete the selected row from the
-  # table
-  for(table.name in names(edit.buttons)) {
-    observeEvent(input[[paste("delete", edit.buttons[[table.name]],
-                              sep = "_")]], {
-      tables[[table.name]] = tables[[table.name]][-input[[paste(table.name,
-                                                                "rows_selected",
-                                                                sep = "_")]],]
-    })
-  }
-  
-  # When the user edits a cell, store the edits in the table (but not edits to
-  # uneditable columns; they should be set to uneditable anyway, but the
-  # redundancy here is nice)
-  for(table.name in names(edit.buttons)) {
-    input.name = paste(table.name, "cell_edit", sep = "_")
-    observeEvent(input[[input.name]], {
-      r = input[[input.name]]$row
-      c = input[[input.name]]$col
-      tables[[table.name]][r[1],c[which(table.info[[table.name]]$columns$editable) + 1]] =
-        na_if(input[[input.name]]$value[table.info[[table.name]]$columns$editable],
-              "")
-    })
-  }
-  
-  # When the user clicks the "Save" button, attempt to write the table to the
-  # database
-  for(table.name in names(edit.buttons)) {
-    observeEvent(input[[paste("save", edit.buttons[[table.name]],
-                              sep = "_")]], {
-
-      # Keep track of whether all updates were successful
-      successful.updates = T
-
-      # Create sql to update changed rows
-      sql = tables[[table.name]] %>%
-        filter(!is.na(.data[[table.info[[table.name]]$key]])) %>%
-        glue_data_sql(update.table.sql[[table.name]], .con = lhp.con())
-      
-      # Attempt to update changed rows
-      for(s in sql) {
-        tryCatch(
-          {
-            dbGetQuery(lhp.con(), s)
-          },
-          error = function(err) {
-            print(err)
-            successful.updates = F
-          }
-        )
+  # When the user makes a change to the return processing table, update the
+  # underlying table accordingly
+  observeEvent(input$process_return, {
+    change = input$process_return$changes
+    if(change$event == "afterChange") {
+      if(!is.null(change$changes)) {
+        r = change$changes[[1]][[1]] + 1
+        c = which(process.return.info$columns$displayed)[change$changes[[1]][[2]] + 1]
+        tables$process_return[r,c] = change$changes[[1]][[4]]
       }
-      
-      # Attempt to insert new rows
-      if(any(is.na(tables[[table.name]][[table.info[[table.name]]$key]]))) {
-        sql = tables[[table.name]] %>%
-          filter(is.na(.data[[table.info[[table.name]]$key]])) %>%
-          glue_data_sql(insert.table.sql[[table.name]], .con = lhp.con())
-        for(s in sql) {
-          tryCatch(
-            {
-              dbGetQuery(lhp.con(), s)
-            },
-            error = function(err) {
-              print(err)
-              successful.updates = F
-            }
-          )
-        }
-      }
-      
-      # Create sql to delete rows
-      sql = glue_sql(delete.table.sql[[table.name]],
-                     keys = tables[[table.name]][[table.info[[table.name]]$key]],
-                     .con = lhp.con())
-      
-      # Attempt to delete rows
+    }
+  })
+  
+  # When the user clicks the "Save return" button, attempt to save the changes
+  # made by the user to the database
+  observeEvent(input$save_return, {
+    
+    # Keep track of whether all updates were successful
+    successful.updates = T
+    
+    # Create sql to update changed rows
+    sql = tables$process_return %>%
+      left_join(tables$song.labels, by = "Label") %>%
+      dplyr::select(HymnologistReturnID, SongID, Processed) %>%
+      glue_data_sql(process.return.info$update_sql,
+                    .con = lhp.con())
+    
+    # Attempt to update changed rows
+    for(s in sql) {
       tryCatch(
         {
-          dbGetQuery(lhp.con(), sql)
+          dbGetQuery(lhp.con(), s)
         },
         error = function(err) {
           print(err)
           successful.updates = F
         }
       )
-      
-      # If anything went wrong, display a notice
-      if(!successful.updates) {
-        showNotification("Some changes may not have been saved", type = "error")
+    }
+    
+    # If anything went wrong, display a notice
+    if(!successful.updates) {
+      showNotification("Some changes may not have been saved", type = "error")
+    }
+    
+    # Update table to reflect database
+    tryCatch(
+      {
+        tables$process_return = sql = glue_sql(process.return.info$select_sql,
+                                               .con = lhp.con())
+        tables$process_return = dbGetQuery(lhp.con(), sql)
+      },
+      error = function(err) {
+        print(err)
+        tables$process_return = NULL
       }
-      
-      # Update table to reflect database
-      tryCatch(
-        {
-          tables[[table.name]] = dbGetQuery(lhp.con(),
-                                            populate.table.sql[[table.name]])
-        },
-        error = function(err) {
-          print(err)
-          tables[[table.name]] = NULL
-        }
-      )
-      
-    })
-  }
+    )
+    
+  })
+  
+  # When the user selects a hymnologist to process a return for, update the
+  # table with return results
+  observeEvent(input$process_return_hymnologist, {
+    if(!is.null(lhp.con())) {
+      sql = glue_sql(process.return.info$select_sql, .con = lhp.con())
+      tables$process_return = dbGetQuery(lhp.con(), sql)
+    }
+  })
   
   # When the user uploads a file, write its contents as a csv to the S3 bucket
   # and add the filename to the table of hymnologists
@@ -426,12 +456,12 @@ server <- function(input, output, session) {
         if(filename.written) {
           tryCatch(
             {
-              tables$manage_hymnologists = dbGetQuery(lhp.con(),
-                                                      populate.table.sql$manage_hymnologists)
+              tables$hymnologists = dbGetQuery(lhp.con(),
+                                               manage.table.info$hymnologists$populate_sql)
             },
             error = function(err) {
               print(err)
-              tables$manage_hymnologists = NULL
+              tables$hymnologists = NULL
             }
           )
           tryCatch(
@@ -448,74 +478,6 @@ server <- function(input, output, session) {
             }
           )
         }
-      }
-    )
-    
-  })
-  
-  # When the user selects a hymnologist to process a return for, update the
-  # table with return results
-  observeEvent(input$process_return_hymnologist, {
-    if(!is.null(lhp.con())) {
-      sql = glue_sql(process.table.info$process_return$select_sql, .con = lhp.con())
-      tables$process_return = dbGetQuery(lhp.con(), sql)
-    }
-  })
-  
-  # When the user makes a change to the return processing table, update the
-  # underlying table accordingly
-  observeEvent(input$process_return, {
-    for(change in input$process_return$changes) {
-      if(is.list(change)) {
-        r = change[[1]][[1]] + 1
-        c = process.table.info$process_return$displayed.cols[change[[1]][[2]] + 1]
-        tables$process_return[r,c] = change[[1]][[4]]
-      }
-    }
-  })
-  
-  # When the user clicks the "Save return" button, attempt to save the changes
-  # made by the user to the database
-  observeEvent(input$save_return, {
-    
-    # Keep track of whether all updates were successful
-    successful.updates = T
-    
-    # Create sql to update changed rows
-    sql = tables$process_return %>%
-      left_join(tables$song_labels, by = "Label") %>%
-      dplyr::select(HymnologistReturnID, SongID, Processed) %>%
-      glue_data_sql(process.table.info$process_return$update_sql,
-                    .con = lhp.con())
-    
-    # Attempt to update changed rows
-    for(s in sql) {
-      tryCatch(
-        {
-          dbGetQuery(lhp.con(), s)
-        },
-        error = function(err) {
-          print(err)
-          successful.updates = F
-        }
-      )
-    }
-    
-    # If anything went wrong, display a notice
-    if(!successful.updates) {
-      showNotification("Some changes may not have been saved", type = "error")
-    }
-    
-    # Update table to reflect database
-    tryCatch(
-      {
-        tables$process_return = sql = glue_sql(process.table.info$process_return$select_sql,
-                                               .con = lhp.con())
-        tables$process_return = dbGetQuery(lhp.con(), sql)
-      },
-      error = function(err) {
-        print(err)
-        tables$process_return = NULL
       }
     )
     

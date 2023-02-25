@@ -30,8 +30,12 @@ process.return.info = list(
                      ON hymnologist_returns.SongID = song_labels.SongID
                 WHERE hymnologist_returns.HymnologistID = {input$process_return_hymnologist}
                       AND NOT Processed",
-  displayed.cols = c(2, 3, 4),
-  editable.cols = c(3, 4),
+  columns = data.frame(
+    column.name = c("HymnologistReturnID", "RawSongName", "Label", "Processed"),
+    displayed = c(F, T, T, T),
+    editable = c(F, F, T, T),
+    width = c(NA, 300, 300, 70)
+  ),
   update_sql = "UPDATE lhp.hymnologist_returns
                 SET SongID = {SongID}, Processed = {Processed}
                 WHERE HymnologistReturnID = {HymnologistReturnID}"
