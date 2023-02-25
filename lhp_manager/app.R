@@ -75,7 +75,7 @@ selector.info = list(return_file_hymnologist = return.file.hymnologist.info,
                      process_return_hymnologist = process.return.hymnologist.info)
 
 # Utility table info
-utility.table.info = list(songs = song.info)
+utility.table.info = list(song.labels = song.labels.info)
 
 # Process table info
 process.table.info = list(process_return = process.return.info)
@@ -252,7 +252,7 @@ server <- function(input, output, session) {
                   hot_col(col = "Processed", type = "checkbox",
                           halign = "htCenter") %>%
                   hot_col(col = "Label", type = "dropdown", strict = T,
-                          renderer = "html", source = tables$songs$Label) %>%
+                          renderer = "html", source = tables$song_labels$Label) %>%
                   hot_col(col = "Label",
                           renderer = htmlwidgets::JS("safeHtmlRenderer")) %>%
                   hot_col(col = which(!(process.table.info[[process.table.name]]$displayed.cols
@@ -483,7 +483,7 @@ server <- function(input, output, session) {
     
     # Create sql to update changed rows
     sql = tables$process_return %>%
-      left_join(tables$songs, by = "Label") %>%
+      left_join(tables$song_labels, by = "Label") %>%
       dplyr::select(HymnologistReturnID, SongID, Processed) %>%
       glue_data_sql(process.table.info$process_return$update_sql,
                     .con = lhp.con())

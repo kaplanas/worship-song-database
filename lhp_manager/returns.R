@@ -28,7 +28,8 @@ process.return.info = list(
                 FROM lhp.hymnologist_returns
                      LEFT JOIN lhp.song_labels
                      ON hymnologist_returns.SongID = song_labels.SongID
-                WHERE hymnologist_returns.HymnologistID = {input$process_return_hymnologist}",
+                WHERE hymnologist_returns.HymnologistID = {input$process_return_hymnologist}
+                      AND NOT Processed",
   displayed.cols = c(2, 3, 4),
   editable.cols = c(3, 4),
   update_sql = "UPDATE lhp.hymnologist_returns
@@ -36,7 +37,7 @@ process.return.info = list(
                 WHERE HymnologistReturnID = {HymnologistReturnID}"
 )
 
-song.info = list(
+song.labels.info = list(
   sql = "SELECT SongID, Label
          FROM lhp.song_labels
          ORDER BY REGEXP_REPLACE(Label, '[^A-Za-z0-9 ]', '')"
