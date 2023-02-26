@@ -8,12 +8,14 @@ library(readxl)
 library(aws.s3)
 library(aws.ec2metadata)
 library(rhandsontable)
+library(DT)
 
 #### Useful stuff ####
 
 # Code in other files
 source("tables.R", local = T)
 source("returns.R", local = T)
+source("summary.R", local = T)
 source("utilities.R", local = T)
 
 # Management tables
@@ -75,7 +77,8 @@ ui <- navbarPage(
   page.title,
   login.page,
   tables.page,
-  returns.page
+  returns.page,
+  summary.page
 )
 
 #### Server ####
@@ -95,6 +98,7 @@ server <- function(input, output, session) {
     tables[[utility.table]] = NULL
   }
   tables$process.return = NULL
+  tables$lhp.summary = NULL
   
   # When the user attempts to log in, attempt to create a connection and
   # populate the tables
@@ -327,8 +331,8 @@ server <- function(input, output, session) {
       )
     }
     
-    # If connected, try to populate processing table; if a query fails, set the
-    # content of the table to null
+    # If connected, try to populate processing table; if the query fails, set
+    # the content of the table to null
     if(!is.null(lhp.con())) {
       tryCatch(
         {
@@ -367,6 +371,35 @@ server <- function(input, output, session) {
     } else {
       tables$process.return = NULL
       output$process.return = renderRHandsontable(NULL)
+    }
+    
+    # If connected, try to populate summary table; if the query fails, set the
+    # content of the table to null
+    if(!is.null(lhp.con())) {
+      tryCatch(
+        {
+          tables$lhp.summary = dbGetQuery(lhp.con(), summary.table.info$sql)
+        },
+        error = function(err) {
+          print(err)
+          tables$lhp.summary = NULL
+          output$lhp.summary = renderDT(NULL)
+        },
+        finally = {
+          if(!is.null(tables$lhp.summary)) {
+            output$lhp.summary = renderDT(
+              tables$lhp.summary,
+              options = list(searching = F, paging = F, info = F),
+              rownames = F
+            )
+          } else {
+            output$lhp.summary = renderDT(NULL)
+          }
+        }
+      )
+    } else {
+      tables$lhp.summary = NULL
+      output$lhp.summary = renderDT(NULL)
     }
 
   })
