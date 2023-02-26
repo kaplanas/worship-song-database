@@ -1,7 +1,11 @@
 return.file.hymnologist.info = list(
   sql = "SELECT CONCAT(CASE WHEN FirstName IS NULL THEN ''
                             ELSE CONCAT(FirstName, ' ')
-                       END, LastName) AS SelectorDisplay,
+                       END,
+                       CONCAT(LastName,
+                              CASE WHEN FileName IS NULL THEN ''
+                                   ELSE ' ✓'
+                              END)) AS SelectorDisplay,
                        HymnologistID
          FROM lhp.hymnologists
          ORDER BY LastName, FirstName, HymnologistID",
