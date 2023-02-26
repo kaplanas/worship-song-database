@@ -481,7 +481,7 @@ server <- function(input, output, session) {
     return.file.df = read_excel(input$return.file$datapath, col_names = "Song")
     
     # Determine the filename
-    filename = tables$manage.hymnologists %>%
+    filename = tables$hymnologists %>%
       filter(HymnologistID == input$return.file.hymnologist) %>%
       mutate(filename = paste(HymnologistID,
                               tolower(gsub("[^A-Za-z]", "", FirstName)),

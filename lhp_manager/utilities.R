@@ -9,7 +9,10 @@ hymnologist.labels.info = list(
 )
 
 song.labels.info = list(
-  sql = "SELECT SongID, Label
+  sql = "SELECT NULL AS SongID, '' AS Label
+         FROM dual
+         UNION ALL
+         SELECT SongID, Label
          FROM lhp.song_labels
-         ORDER BY REGEXP_REPLACE(Label, '[^A-Za-z0-9 ]', '')"
+         ORDER BY Label"
 )
