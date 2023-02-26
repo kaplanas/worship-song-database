@@ -404,75 +404,6 @@ server <- function(input, output, session) {
 
   })
   
-  # When the user makes a change to the return processing table, update the
-  # underlying table accordingly
-  observeEvent(input$process.return, {
-    change = input$process.return$changes
-    if(change$event == "afterChange") {
-      if(!is.null(change$changes)) {
-        r = change$changes[[1]][[1]] + 1
-        c = which(process.return.info$columns$displayed)[change$changes[[1]][[2]] + 1]
-        tables$process.return[r,c] = change$changes[[1]][[4]]
-      }
-    }
-  })
-  
-  # When the user clicks the "Save return" button, attempt to save the changes
-  # made by the user to the database
-  observeEvent(input$save.return, {
-    
-    # Keep track of whether all updates were successful
-    successful.updates = T
-    
-    # Create sql to update changed rows
-    sql = tables$process.return %>%
-      left_join(tables$song.labels, by = "Label") %>%
-      dplyr::select(HymnologistReturnID, SongID, Processed) %>%
-      glue_data_sql(process.return.info$update.sql,
-                    .con = lhp.con())
-    
-    # Attempt to update changed rows
-    for(s in sql) {
-      tryCatch(
-        {
-          dbGetQuery(lhp.con(), s)
-        },
-        error = function(err) {
-          print(err)
-          successful.updates = F
-        }
-      )
-    }
-    
-    # If anything went wrong, display a notice
-    if(!successful.updates) {
-      showNotification("Some changes may not have been saved", type = "error")
-    }
-    
-    # Update table to reflect database
-    tryCatch(
-      {
-        tables$process.return = sql = glue_sql(process.return.info$select.sql,
-                                               .con = lhp.con())
-        tables$process.return = dbGetQuery(lhp.con(), sql)
-      },
-      error = function(err) {
-        print(err)
-        tables$process.return = NULL
-      }
-    )
-    
-  })
-  
-  # When the user selects a hymnologist to process a return for, update the
-  # table with return results
-  observeEvent(input$process.return.hymnologist, {
-    if(!is.null(lhp.con())) {
-      sql = glue_sql(process.return.info$select.sql, .con = lhp.con())
-      tables$process.return = dbGetQuery(lhp.con(), sql)
-    }
-  })
-  
   # When the user uploads a file, write its contents as a csv to the S3 bucket
   # and add the filename to the table of hymnologists
   observeEvent(input$upload.return.file, {
@@ -534,6 +465,127 @@ server <- function(input, output, session) {
             }
           )
         }
+      }
+    )
+    
+  })
+  
+  # When the user requests a refresh of the list of not-yet-processed returns,
+  # update the list of hymnologists
+  observeEvent(input$refresh.process.return.hymnologist, {
+    if(!is.null(lhp.con())) {
+      selector.list = list()
+      tryCatch(
+        {
+          selector.list = dbGetQuery(lhp.con(),
+                                     selector.info$process.return.hymnologist$sql) %>%
+            column_to_rownames("SelectorDisplay") %>%
+            t() %>%
+            as.data.frame() %>%
+            as.list()
+        },
+        error = function(err) {
+          print(err)
+          selector.list = list()
+        },
+        finally = {
+          updateSelectInput(session, "process.return.hymnologist",
+                            choices = selector.list)
+        }
+      )
+    }
+  })
+  
+  # When the user selects a hymnologist to process a return for, update the
+  # table with return results
+  observeEvent(input$process.return.hymnologist, {
+    if(!is.null(lhp.con())) {
+      sql = glue_sql(process.return.info$select.sql, .con = lhp.con())
+      tables$process.return = dbGetQuery(lhp.con(), sql)
+    }
+  })
+  
+  # When the user makes a change to the return processing table, update the
+  # underlying table accordingly
+  observeEvent(input$process.return, {
+    change = input$process.return$changes
+    if(change$event == "afterChange") {
+      if(!is.null(change$changes)) {
+        r = change$changes[[1]][[1]] + 1
+        c = which(process.return.info$columns$displayed)[change$changes[[1]][[2]] + 1]
+        tables$process.return[r,c] = change$changes[[1]][[4]]
+      }
+    }
+  })
+  
+  # When the user clicks the "Save return" button, attempt to save the changes
+  # made by the user to the database (and refresh corresponding tables in the
+  # app)
+  observeEvent(input$save.return, {
+    
+    # Keep track of whether all updates were successful
+    successful.updates = T
+    
+    # Create sql to update changed rows
+    sql = tables$process.return %>%
+      left_join(tables$song.labels, by = "Label") %>%
+      dplyr::select(HymnologistReturnID, SongID, Processed) %>%
+      glue_data_sql(process.return.info$update.sql,
+                    .con = lhp.con())
+    
+    # Attempt to update changed rows
+    for(s in sql) {
+      tryCatch(
+        {
+          dbGetQuery(lhp.con(), s)
+        },
+        error = function(err) {
+          print(err)
+          successful.updates = F
+        }
+      )
+    }
+    
+    # If anything went wrong, display a notice
+    if(!successful.updates) {
+      showNotification("Some changes may not have been saved", type = "error")
+    }
+    
+    # Update table to reflect database
+    tryCatch(
+      {
+        tables$process.return = sql = glue_sql(process.return.info$select.sql,
+                                               .con = lhp.con())
+        tables$process.return = dbGetQuery(lhp.con(), sql)
+      },
+      error = function(err) {
+        print(err)
+        tables$process.return = NULL
+      }
+    )
+    
+    # Update management table to reflect database
+    tryCatch(
+      {
+        tables$hymnologist.returns = dbGetQuery(lhp.con(),
+                                                manage.table.info$hymnologist.returns$populate.sql)
+      },
+      error = function(err) {
+        print(err)
+        tables$hymnologist.returns = NULL
+        output$hymnologist.returns = renderRHandsontable(NULL)
+      }
+    )
+    
+    # Update summary table to reflect database
+    tryCatch(
+      {
+        tables$lhp.summary = dbGetQuery(lhp.con(), summary.table.info$sql)
+      },
+      error = function(err) {
+        print(err)
+        tables$lhp.summary = NULL
+        output$lhp.summary = renderDT(NULL)
       }
     )
     

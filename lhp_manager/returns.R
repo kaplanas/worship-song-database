@@ -57,6 +57,8 @@ upload.returns = tabPanel(
 
 process.returns = tabPanel(
   "Process returns",
+  actionButton("refresh.process.return.hymnologist",
+               label = "Refresh available returns"),
   selectInput("process.return.hymnologist", "Choose hymnologist:",
               choices = list()),
   rHandsontableOutput("process.return"),
