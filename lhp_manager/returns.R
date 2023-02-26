@@ -22,13 +22,13 @@ process.return.hymnologist.info = list(
 )
 
 process.return.info = list(
-  select_sql = "SELECT hymnologist_returns.HymnologistReturnID,
+  select.sql = "SELECT hymnologist_returns.HymnologistReturnID,
                        hymnologist_returns.RawSongName, song_labels.Label,
                        hymnologist_returns.Processed
                 FROM lhp.hymnologist_returns
                      LEFT JOIN lhp.song_labels
                      ON hymnologist_returns.SongID = song_labels.SongID
-                WHERE hymnologist_returns.HymnologistID = {input$process_return_hymnologist}
+                WHERE hymnologist_returns.HymnologistID = {input$process.return.hymnologist}
                       AND NOT Processed",
   columns = data.frame(
     column.name = c("HymnologistReturnID", "RawSongName", "Label", "Processed"),
@@ -36,39 +36,33 @@ process.return.info = list(
     editable = c(F, F, T, T),
     width = c(NA, 300, 300, 70)
   ),
-  update_sql = "UPDATE lhp.hymnologist_returns
+  update.sql = "UPDATE lhp.hymnologist_returns
                 SET SongID = {SongID}, Processed = {Processed}
                 WHERE HymnologistReturnID = {HymnologistReturnID}"
 )
 
-song.labels.info = list(
-  sql = "SELECT SongID, Label
-         FROM lhp.song_labels
-         ORDER BY REGEXP_REPLACE(Label, '[^A-Za-z0-9 ]', '')"
-)
-
 upload.returns = tabPanel(
   "Upload returns",
-  selectInput("return_file_hymnologist", "Choose hymnologist:",
+  selectInput("return.file.hymnologist", "Choose hymnologist:",
               choices = list()),
-  fileInput("return_file", label = "", multiple = F,
+  fileInput("return.file", label = "", multiple = F,
             accept = c(".csv", ".xls", ".xlsx"),
             buttonLabel = "Choose file..."),
-  actionButton("upload_return_file", label = "Save file")
+  actionButton("upload.return.file", label = "Save file")
 )
 
 process.returns = tabPanel(
   "Process returns",
-  selectInput("process_return_hymnologist", "Choose hymnologist:",
+  selectInput("process.return.hymnologist", "Choose hymnologist:",
               choices = list()),
-  rHandsontableOutput("process_return"),
-  actionButton("save_return", label = "Save changes")
+  rHandsontableOutput("process.return"),
+  actionButton("save.return", label = "Save changes")
 )
 
-returns.page = tabPanel("Manage returns",
+returns.page = tabPanel("Upload and process returns",
                         navlistPanel(
                           upload.returns,
                           process.returns,
                           well = F,
-                          widths = c(3, 9)
+                          widths = c(2, 10)
                         ))
