@@ -18,6 +18,9 @@ source("returns.R", local = T)
 source("summary.R", local = T)
 source("utilities.R", local = T)
 
+# ggplot theme
+theme_set(theme_bw())
+
 # Management tables
 manage.table.info = list(hymnologists = manage.hymnologists.info,
                          hymnologist.returns = manage.hymnologist.returns.info)
@@ -392,8 +395,18 @@ server <- function(input, output, session) {
               options = list(searching = F, paging = F, info = F),
               rownames = F
             )
+            output$lhp.histogram = renderPlot(
+              tables$lhp.summary %>%
+                group_by(Hymnologists) %>%
+                summarise(n.songs = n()) %>%
+                ggplot(aes(x = Hymnologists, y = n.songs)) +
+                geom_bar(stat = "identity") +
+                scale_x_reverse() +
+                labs(x = "Number of votes", y = "Number of songs")
+            )
           } else {
             output$lhp.summary = renderDT(NULL)
+            output$lhp.histogram = renderPlot(NULL)
           }
         }
       )
@@ -405,7 +418,8 @@ server <- function(input, output, session) {
   })
   
   # When the user uploads a file, write its contents as a csv to the S3 bucket
-  # and add the filename to the table of hymnologists
+  # and add the filename to the table of hymnologists; also update the
+  # hymnologist management table and selector
   observeEvent(input$upload.return.file, {
     
     # Read in the data
@@ -421,7 +435,8 @@ server <- function(input, output, session) {
              filename = paste(filename, "csv", sep = ".")) %>%
       pull(filename)
     
-    # Write the data to a csv in the S3 bucket
+    # Write the data to a csv in the S3 bucket; update the management table and
+    # selectors accordingly
     file.saved = F
     tryCatch(
       {
@@ -462,6 +477,30 @@ server <- function(input, output, session) {
             error = function(err) {
               print(err)
               showNotification("Unable to save file", type = "error")
+            }
+          )
+          purrr::walk(
+            c("return.file.hymnologist", "process.return.hymnologist"),
+            function(selector.name) {
+              selector.list = list()
+              tryCatch(
+                {
+                  selector.list = dbGetQuery(lhp.con(),
+                                             selector.info[[selector.name]]$sql) %>%
+                    column_to_rownames("SelectorDisplay") %>%
+                    t() %>%
+                    as.data.frame() %>%
+                    as.list()
+                },
+                error = function(err) {
+                  print(err)
+                  selector.list = list()
+                },
+                finally = {
+                  updateSelectInput(session, selector.name,
+                                    choices = selector.list)
+                }
+              )
             }
           )
         }

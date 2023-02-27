@@ -51,5 +51,20 @@ summary.table.info = list(
          ORDER BY return_counts.Hymnologists DESC, song_titles.Song"
 )
 
+summary.table = tabPanel(
+  "Table of songs",
+  DTOutput("lhp.summary")
+)
+
+summary.histogram = tabPanel(
+  "Distribution of votes",
+  plotOutput("lhp.histogram")
+)
+
 summary.page = tabPanel("Summary",
-                        DTOutput("lhp.summary"))
+                        navlistPanel(
+                          summary.table,
+                          summary.histogram,
+                          well = F,
+                          widths = c(2, 10)
+                        ))
