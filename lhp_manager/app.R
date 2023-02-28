@@ -392,6 +392,11 @@ server <- function(input, output, session) {
           if(!is.null(tables$lhp.summary)) {
             output$lhp.summary = renderDT(
               tables$lhp.summary %>%
+                dplyr::select(Song, Hymnologists, `Songs of Faith and Praise`,
+                              `Praise for the Lord`,
+                              `Psalms, Hymns, and Spiritual Songs`,
+                              `Hymns for Worship`, `The Paperless Hymnal`,
+                              Christmas, Nation) %>%
                 datatable(options = list(searching = F, paging = F, info = F,
                                          columnDefs = list(list(visible = F,
                                                                 targets = c(7, 8)))),
@@ -405,15 +410,37 @@ server <- function(input, output, session) {
               tables$lhp.summary %>%
                 mutate(Category = case_when(Christmas == "Y" ~ "Christmas",
                                             Nation == "Y" ~ "Nation",
-                                            T ~ "None")) %>%
-                group_by(Hymnologists, Category) %>%
+                                            T ~ "None"),
+                       prop = Hymnologists / TotalHymnologists) %>%
+                group_by(prop, Category) %>%
                 summarise(n.songs = n()) %>%
-                ggplot(aes(x = Hymnologists, y = n.songs, fill = Category)) +
+                ggplot(aes(x = prop, y = n.songs, fill = Category)) +
                 geom_bar(stat = "identity") +
-                scale_x_reverse() +
-                scale_fill_manual(values = c("palegreen", "lightcoral",
-                                                        "darkgray")) +
-                labs(x = "Number of votes", y = "Number of songs")
+                scale_x_continuous(labels = scales::percent_format(),
+                                   breaks = seq(0, 1, 0.2)) +
+                scale_fill_manual(values = c("palegreen3", "firebrick1",
+                                             "gray50")) +
+                labs(x = "Percent of hymnologists", y = "Number of songs")
+            )
+            output$lhp.violinplot = renderPlot(
+              tables$lhp.summary %>%
+                filter(Year > 0) %>%
+                mutate(Category = case_when(Christmas == "Y" ~ "Christmas",
+                                            Nation == "Y" ~ "Nation",
+                                            T ~ "None"),
+                       prop = Hymnologists / TotalHymnologists,
+                       prop.bin = cut(prop, breaks = seq(0, 1, 0.1),
+                                      labels = paste(seq(0, 90, 10), "-",
+                                                     c(seq(9, 89, 10), 100),
+                                                     "%", sep = ""))) %>%
+                ggplot(aes(x = prop.bin, y = Year)) +
+                geom_violin(color = NA, fill = "gray90") +
+                geom_point(aes(color = Category, alpha = Category),
+                           position = position_jitter(width = 0.1)) +
+                scale_color_manual(values = c("palegreen3", "firebrick1",
+                                              "black")) +
+                scale_alpha_manual(values = c(1, 1, 0.3)) +
+                labs(x = "Percent of hymnologists", y = "Year composed")
             )
           } else {
             output$lhp.summary = renderDT(NULL)

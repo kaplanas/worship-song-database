@@ -24,8 +24,31 @@ summary.table.info = list(
                       COUNT(DISTINCT hymnologist_returns.HymnologistID) AS Hymnologists
                FROM lhp.hymnologist_returns
                WHERE Processed
-               GROUP BY SongID)
+               GROUP BY SongID),
+              lyrics_year AS
+              (SELECT songinstances.SongID,
+                      MIN(lyrics.CopyrightYear) AS Year
+               FROM wsdb.songinstances
+                    JOIN wsdb.songinstances_lyrics
+                    ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+                    JOIN wsdb.lyrics
+                    ON songinstances_lyrics.LyricsID = lyrics.LyricsID
+               WHERE lyrics.CopyrightYear <= 1994
+               GROUP BY songinstances.SongID),
+              tune_year AS
+              (SELECT songinstances.SongID,
+                      MIN(tunes.CopyrightYear) AS Year
+               FROM wsdb.songinstances
+                    JOIN wsdb.songinstances_tunes
+                    ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
+                    JOIN wsdb.tunes
+                    ON songinstances_tunes.TuneID = tunes.TuneID
+               WHERE tunes.CopyrightYear <= 1994
+               GROUP BY songinstances.SongID)
          SELECT song_titles.Song, return_counts.Hymnologists,
+                (SELECT COUNT(DISTINCT HymnologistID)
+                 FROM lhp.hymnologist_returns
+                 WHERE Processed) AS TotalHymnologists,
                 sfp.EntryNumbers AS \"Songs of Faith and Praise\",
                 pl.EntryNumbers AS \"Praise for the Lord\",
                 phss.EntryNumbers AS \"Psalms, Hymns, and Spiritual Songs\",
@@ -36,7 +59,9 @@ summary.table.info = list(
                 END AS Christmas,
                 CASE WHEN nation.SongID IS NULL THEN 'N'
                      ELSE 'Y'
-                END AS Nation
+                END AS Nation,
+                GREATEST(IFNULL(lyrics_year.Year, 0),
+                         IFNULL(tune_year.Year, 0)) AS Year
          FROM return_counts
               JOIN song_titles
               ON return_counts.SongID = song_titles.SongID
@@ -61,6 +86,10 @@ summary.table.info = list(
               LEFT JOIN wsdb.songs_topics nation
               ON return_counts.SongID = nation.SongID
                  AND nation.TopicID = 2
+              LEFT JOIN lyrics_year
+              ON return_counts.SongID = lyrics_year.SongID
+              LEFT JOIN tune_year
+              ON return_counts.SongID = tune_year.SongID
          ORDER BY return_counts.Hymnologists DESC, song_titles.Song"
 )
 
@@ -74,10 +103,16 @@ summary.histogram = tabPanel(
   plotOutput("lhp.histogram")
 )
 
+summary.violinplot = tabPanel(
+  "Year of composition",
+  plotOutput("lhp.violinplot")
+)
+
 summary.page = tabPanel("Summary",
                         navlistPanel(
                           summary.table,
                           summary.histogram,
+                          summary.violinplot,
                           well = F,
                           widths = c(2, 10)
                         ))
