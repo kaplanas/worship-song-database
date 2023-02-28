@@ -391,17 +391,28 @@ server <- function(input, output, session) {
         finally = {
           if(!is.null(tables$lhp.summary)) {
             output$lhp.summary = renderDT(
-              tables$lhp.summary,
-              options = list(searching = F, paging = F, info = F),
-              rownames = F
+              tables$lhp.summary %>%
+                datatable(options = list(searching = F, paging = F, info = F,
+                                         columnDefs = list(list(visible = F,
+                                                                targets = c(7, 8)))),
+                          rownames = F) %>%
+                formatStyle("Christmas", target = "row",
+                            backgroundColor = styleEqual("Y", "palegreen")) %>%
+                formatStyle("Nation", target = "row",
+                            backgroundColor = styleEqual("Y", "lightcoral")),
             )
             output$lhp.histogram = renderPlot(
               tables$lhp.summary %>%
-                group_by(Hymnologists) %>%
+                mutate(Category = case_when(Christmas == "Y" ~ "Christmas",
+                                            Nation == "Y" ~ "Nation",
+                                            T ~ "None")) %>%
+                group_by(Hymnologists, Category) %>%
                 summarise(n.songs = n()) %>%
-                ggplot(aes(x = Hymnologists, y = n.songs)) +
+                ggplot(aes(x = Hymnologists, y = n.songs, fill = Category)) +
                 geom_bar(stat = "identity") +
                 scale_x_reverse() +
+                scale_fill_manual(values = c("palegreen", "lightcoral",
+                                                        "darkgray")) +
                 labs(x = "Number of votes", y = "Number of songs")
             )
           } else {
