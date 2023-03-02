@@ -148,7 +148,8 @@ server <- function(input, output, session) {
               if(!is.null(tables[[manage.table]])) {
                 output[[manage.table]] = renderRHandsontable({
                   temp.df = tables[[manage.table]]
-                  rhandsontable(temp.df, rowHeaders = F) %>%
+                  rhandsontable(temp.df, rowHeaders = F,
+                                overflow = "visible") %>%
                     hot_cols(columnSorting = F) %>%
                     hot_col(col = which(!manage.info$columns$editable),
                             readOnly = T)
@@ -353,7 +354,7 @@ server <- function(input, output, session) {
             output$process.return = renderRHandsontable(
               rhandsontable(tables$process.return[,process.return.info$columns$displayed] %>%
                               mutate(Processed = Processed == 1),
-                            rowHeaders = NULL) %>%
+                            rowHeaders = NULL, overflow = "visible") %>%
                 hot_context_menu(allowRowEdit = F, allowColEdit = F) %>%
                 hot_cols(colWidths = process.return.info$columns$width[process.return.info$columns$displayed],
                          columnSorting = F) %>%
