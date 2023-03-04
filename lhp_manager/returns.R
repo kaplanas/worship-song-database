@@ -27,18 +27,20 @@ process.return.hymnologist.info = list(
 
 process.return.info = list(
   select.sql = "SELECT hymnologist_returns.HymnologistReturnID,
-                       hymnologist_returns.RawSongName, song_labels.Label,
+                       hymnologist_returns.RawSongName, song_labels.SongLabel,
                        hymnologist_returns.Processed
                 FROM lhp.hymnologist_returns
                      LEFT JOIN lhp.song_labels
                      ON hymnologist_returns.SongID = song_labels.SongID
-                WHERE hymnologist_returns.HymnologistID = {input$process.return.hymnologist}
+                WHERE hymnologist_returns.HymnologistID = {process.return.hymnologist}
                       AND NOT Processed",
   columns = data.frame(
-    column.name = c("HymnologistReturnID", "RawSongName", "Label", "Processed"),
+    column.name = c("HymnologistReturnID", "RawSongName", "SongLabel",
+                    "Processed"),
     displayed = c(F, T, T, T),
     editable = c(F, F, T, T),
-    width = c(NA, 300, 300, 70)
+    width = c(NA, 300, 300, 70),
+    stringsAsFactors = F
   ),
   update.sql = "UPDATE lhp.hymnologist_returns
                 SET SongID = {SongID}, Processed = {Processed}
