@@ -549,6 +549,7 @@ server <- function(input, output, session) {
         r = change$changes[[1]][[1]] + 1
         c = which(process.return.info$columns$displayed)[change$changes[[1]][[2]] + 1]
         tables$process.return[r,c] = change$changes[[1]][[4]]
+        changes$process.return$edit = T
       }
     }
   })
