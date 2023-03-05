@@ -44,7 +44,15 @@ process.return.info = list(
   ),
   update.sql = "UPDATE lhp.hymnologist_returns
                 SET SongID = {SongID}, Processed = {Processed}
-                WHERE HymnologistReturnID = {HymnologistReturnID}"
+                WHERE HymnologistReturnID = {HymnologistReturnID}",
+  insert.sql = "INSERT INTO lhp.hymnologist_returns
+                (HymnologistID, SongID, Processed)
+                VALUES
+                ({HymnologistID}, {SongID}, {Processed})",
+  delete.sql = "DELETE FROM lhp.hymnologist_returns
+                WHERE HymnologistID = {input$process.return.hymnologist}
+                      AND NOT Processed
+                      AND HymnologistReturnID NOT IN ({keys*})"
 )
 
 upload.returns = tabPanel(

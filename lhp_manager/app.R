@@ -117,7 +117,7 @@ server <- function(input, output, session) {
     tables[[utility.table]] = NULL
   }
   tables$process.return = NULL
-  changes$process.return = list(edit = F)
+  changes$process.return = list(edit = F, insert = F, delete = F)
   tables$lhp.summary = NULL
   
   # When the user attempts to log in, attempt to create a connection and
@@ -383,7 +383,7 @@ server <- function(input, output, session) {
                       width = input$dimension[1] * 0.75,
                       height = input$dimension[2] * 0.8,
                       rowHeaders = NULL, overflow = "visible") %>%
-          hot_context_menu(allowRowEdit = F, allowColEdit = F) %>%
+          hot_context_menu(allowColEdit = F) %>%
           hot_cols(colWidths = process.return.info$columns$width[process.return.info$columns$displayed],
                    columnSorting = F) %>%
           hot_col(col = "Processed", type = "checkbox",
@@ -543,7 +543,11 @@ server <- function(input, output, session) {
   # When the user makes a change to the return processing table, update the
   # underlying table accordingly
   observeEvent(input$process.return, {
+    
+    # What kind of change happened?
     change = input$process.return$changes
+    
+    # If it was an edit, update the edited cell
     if(change$event == "afterChange") {
       if(!is.null(change$changes)) {
         r = change$changes[[1]][[1]] + 1
@@ -552,6 +556,20 @@ server <- function(input, output, session) {
         changes$process.return$edit = T
       }
     }
+    
+    # If it was a new row, insert an empty row
+    else if(change$event == "afterCreateRow") {
+      tables$process.return[nrow(tables$process.return) + 1,] = NA
+      changes$process.return$insert = T
+    }
+    
+    # If it was a deleted row, remove that row
+    else if(change$event == "afterRemoveRow") {
+      r = change$ind + 1
+      tables$process.return = tables$process.return[-r,]
+      changes$process.return$delete = T
+    }
+    
   })
   
   # When the user clicks the "Save return" button, attempt to save the changes
@@ -562,14 +580,16 @@ server <- function(input, output, session) {
     # Keep track of whether all updates were successful
     successful.updates = T
     
+    # Get raw data to use for update (mapping labels back to IDs)
+    temp.df = tables$process.return %>%
+      left_join(tables$song.labels, by = "SongLabel") %>%
+      dplyr::select(HymnologistReturnID, SongID, Processed)
+    
     if(changes$process.return$edit) {
       
       # Create sql to update changed rows
-      sql = tables$process.return %>%
-        left_join(tables$song.labels, by = "SongLabel") %>%
-        dplyr::select(HymnologistReturnID, SongID, Processed) %>%
-        glue_data_sql(process.return.info$update.sql,
-                      .con = lhp.con())
+      sql = temp.df %>%
+        glue_data_sql(process.return.info$update.sql, .con = lhp.con())
       
       # Attempt to update changed rows
       for(s in sql) {
@@ -584,6 +604,52 @@ server <- function(input, output, session) {
           }
         )
       }
+      
+    }
+    
+    if(changes$process.return$insert) {
+      
+      # Attempt to insert new rows
+      if(any(is.na(temp.df$HymnologistReturnID))) {
+        sql = temp.df %>%
+          filter(is.na(HymnologistReturnID)) %>%
+          mutate(HymnologistID = as.numeric(input$process.return.hymnologist)) %>%
+          dplyr::select(HymnologistID, SongID, Processed) %>%
+          glue_data_sql(process.return.info$insert.sql, .con = lhp.con())
+        for(s in sql) {
+          tryCatch(
+            {
+              dbGetQuery(lhp.con(), s)
+              changes$process.return$insert = F
+            },
+            error = function(err) {
+              print(err)
+              successful.updates = F
+            }
+          )
+        }
+      }
+      
+    }
+    
+    if(changes$process.return$delete) {
+      
+      # Create sql to delete rows
+      sql = glue_sql(process.return.info$delete.sql,
+                     keys = temp.df$HymnologistReturnID,
+                     .con = lhp.con())
+      
+      # Attempt to delete rows
+      tryCatch(
+        {
+          dbGetQuery(lhp.con(), sql)
+          changes$process.return$delete = F
+        },
+        error = function(err) {
+          print(err)
+          successful.updates = F
+        }
+      )
       
     }
     
