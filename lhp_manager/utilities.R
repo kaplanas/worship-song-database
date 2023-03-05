@@ -106,12 +106,8 @@ populate.summary.table = function(db.con, reactive.tables) {
 #### Utility tables ####
 
 hymnologist.labels.info = list(
-  sql = "SELECT HymnologistID,
-                CONCAT(CASE WHEN FirstName IS NULL THEN ''
-                            ELSE CONCAT(FirstName, ' ')
-                       END,
-                       LastName) AS HymnologistLabel
-         FROM lhp.hymnologists
+  sql = "SELECT HymnologistID, HymnologistLabel
+         FROM lhp.hymnologist_labels
          ORDER BY LastName, FirstName"
 )
 
