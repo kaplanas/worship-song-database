@@ -108,13 +108,16 @@ server <- function(input, output, session) {
   
   # Keep track of reactive stuff
   tables = reactiveValues()
+  changes = reactiveValues()
   for(manage.table in names(manage.table.info)) {
     tables[[manage.table]] = NULL
+    changes[[manage.table]] = list(edit = F, insert = F, delete = F)
   }
   for(utility.table in names(utility.table.info)) {
     tables[[utility.table]] = NULL
   }
   tables$process.return = NULL
+  changes$process.return = list(edit = F)
   tables$lhp.summary = NULL
   
   # When the user attempts to log in, attempt to create a connection and
@@ -226,18 +229,21 @@ server <- function(input, output, session) {
               r = change$changes[[1]][[1]] + 1
               c = change$changes[[1]][[2]] + 1
               tables[[manage.table]][r,c] = change$changes[[1]][[4]]
+              changes[[manage.table]]$edit = T
             }
           }
           
           # If it was a new row, insert an empty row
           else if(change$event == "afterCreateRow") {
             tables[[manage.table]][nrow(tables[[manage.table]]) + 1,] = NA
+            changes[[manage.table]]$insert = T
           }
           
           # If it was a deleted row, remove that row
           else if(change$event == "afterRemoveRow") {
             r = change$ind + 1
             tables[[manage.table]] = tables[[manage.table]][-r,]
+            changes[[manage.table]]$delete = T
           }
           
         })
@@ -268,33 +274,19 @@ server <- function(input, output, session) {
           }
           temp.df = temp.df[,manage.info$columns$column.name]
           
-          # Create sql to update changed rows
-          sql = temp.df %>%
-            filter(!is.na(.data[[manage.info$key]])) %>%
-            glue_data_sql(manage.info$update.sql, .con = lhp.con())
-          
-          # Attempt to update changed rows
-          for(s in sql) {
-            tryCatch(
-              {
-                dbGetQuery(lhp.con(), s)
-              },
-              error = function(err) {
-                print(err)
-                successful.updates = F
-              }
-            )
-          }
-
-          # Attempt to insert new rows
-          if(any(is.na(tables[[manage.table]][[manage.info$key]]))) {
-            sql = tables[[manage.table]] %>%
-              filter(is.na(.data[[manage.info$key]])) %>%
-              glue_data_sql(manage.info$insert.sql, .con = lhp.con())
+          if(changes[[manage.table]]$edit) {
+            
+            # Create sql to update changed rows
+            sql = temp.df %>%
+              filter(!is.na(.data[[manage.info$key]])) %>%
+              glue_data_sql(manage.info$update.sql, .con = lhp.con())
+            
+            # Attempt to update changed rows
             for(s in sql) {
               tryCatch(
                 {
                   dbGetQuery(lhp.con(), s)
+                  changes[[manage.table]]$edit = F
                 },
                 error = function(err) {
                   print(err)
@@ -302,23 +294,53 @@ server <- function(input, output, session) {
                 }
               )
             }
+            
           }
-
-          # Create sql to delete rows
-          sql = glue_sql(manage.info$delete.sql,
-                         keys = tables[[manage.table]][[manage.info$key]],
-                         .con = lhp.con())
-
-          # Attempt to delete rows
-          tryCatch(
-            {
-              dbGetQuery(lhp.con(), sql)
-            },
-            error = function(err) {
-              print(err)
-              successful.updates = F
+          
+          if(changes[[manage.table]]$insert) {
+            
+            # Attempt to insert new rows
+            if(any(is.na(temp.df[[manage.info$key]]))) {
+              sql = temp.df %>%
+                filter(is.na(.data[[manage.info$key]])) %>%
+                glue_data_sql(manage.info$insert.sql, .con = lhp.con())
+              sql = gsub("NULL", "DEFAULT", sql)
+              for(s in sql) {
+                tryCatch(
+                  {
+                    dbGetQuery(lhp.con(), s)
+                    changes[[manage.table]]$insert = F
+                  },
+                  error = function(err) {
+                    print(err)
+                    successful.updates = F
+                  }
+                )
+              }
             }
-          )
+            
+          }
+          
+          if(changes[[manage.table]]$delete) {
+            
+            # Create sql to delete rows
+            sql = glue_sql(manage.info$delete.sql,
+                           keys = temp.df[[manage.info$key]],
+                           .con = lhp.con())
+            
+            # Attempt to delete rows
+            tryCatch(
+              {
+                dbGetQuery(lhp.con(), sql)
+                changes[[manage.table]]$delete = F
+              },
+              error = function(err) {
+                print(err)
+                successful.updates = F
+              }
+            )
+            
+          }
 
           # Display a notice about whether anything went wrong
           if(successful.updates) {
@@ -539,24 +561,29 @@ server <- function(input, output, session) {
     # Keep track of whether all updates were successful
     successful.updates = T
     
-    # Create sql to update changed rows
-    sql = tables$process.return %>%
-      left_join(tables$song.labels, by = "SongLabel") %>%
-      dplyr::select(HymnologistReturnID, SongID, Processed) %>%
-      glue_data_sql(process.return.info$update.sql,
-                    .con = lhp.con())
-    
-    # Attempt to update changed rows
-    for(s in sql) {
-      tryCatch(
-        {
-          dbGetQuery(lhp.con(), s)
-        },
-        error = function(err) {
-          print(err)
-          successful.updates = F
-        }
-      )
+    if(changes$process.return$edit) {
+      
+      # Create sql to update changed rows
+      sql = tables$process.return %>%
+        left_join(tables$song.labels, by = "SongLabel") %>%
+        dplyr::select(HymnologistReturnID, SongID, Processed) %>%
+        glue_data_sql(process.return.info$update.sql,
+                      .con = lhp.con())
+      
+      # Attempt to update changed rows
+      for(s in sql) {
+        tryCatch(
+          {
+            dbGetQuery(lhp.con(), s)
+            changes$process.return$edit = F
+          },
+          error = function(err) {
+            print(err)
+            successful.updates = F
+          }
+        )
+      }
+      
     }
     
     # If anything went wrong, display a notice
