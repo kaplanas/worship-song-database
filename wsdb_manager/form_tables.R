@@ -493,9 +493,12 @@ populate.form.page = function(form.table, row, session) {
         updateSelectizeInput(session, col.info$element.id,
                              selected = row[[col.info$column.name]])
       } else {
-        if(length(row[[col.info$column.name]]) > 0) {
+        if(!is.null(row[[col.info$column.name]][[1]])) {
           updateSelectizeInput(session, col.info$element.id,
                                selected = row[[col.info$column.name]][[1]][[col.info$column.name]])
+        } else {
+          updateSelectizeInput(session, col.info$element.id,
+                               selected = character(0))
         }
       }
     }
