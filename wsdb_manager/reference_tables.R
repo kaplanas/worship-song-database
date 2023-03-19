@@ -605,7 +605,7 @@ update.reference.table = function(reference.table, change,
   
   # If it was a new row, insert an empty row
   else if(change$event == "afterCreateRow") {
-    reactive.referencetables[[reference.table]][nrow(reactive.reference.tables[[reference.table]]) + 1,] = NA
+    reactive.reference.tables[[reference.table]][nrow(reactive.reference.tables[[reference.table]]) + 1,] = NA
     reactive.reference.changes[[reference.table]]$insert = T
   }
   
