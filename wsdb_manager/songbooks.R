@@ -97,9 +97,13 @@ create.songbook.hot = function(df, reactive.label.tables, window.width,
   if(is.null(df)) {
     NULL
   } else {
-    rhandsontable(df[,process.songbook.info$columns$displayed],
-                  width = window.width * 0.75, height = window.height * 0.65,
-                  rowHeaders = NULL, overflow = "visible") %>%
+    temp.df = df[,process.songbook.info$columns$displayed]
+    if(nrow(temp.df) == 0) {
+      temp.df = temp.df %>% add_row()
+    }
+    rhandsontable(temp.df, width = window.width * 0.75,
+                  height = window.height * 0.65, rowHeaders = NULL,
+                  overflow = "visible") %>%
       hot_context_menu(allowColEdit = F) %>%
       hot_cols(colWidths = process.songbook.info$columns$width[process.songbook.info$columns$displayed],
                columnSorting = F) %>%
@@ -188,7 +192,8 @@ save.songbook.table = function(reactive.songbook.processing,
   }
   
   # If there were inserts, issue an INSERT statement
-  if(reactive.songbook.processing$changes$insert) {
+  if(reactive.songbook.processing$changes$insert ||
+     (nrow(temp.df) == 1 & is.na(temp.df$SongbookEntryID))) {
     
     # Attempt to insert new rows
     if(any(is.na(temp.df$SongbookEntryID))) {

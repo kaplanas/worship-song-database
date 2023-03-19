@@ -432,6 +432,63 @@ manage.topics = tabPanel(
   actionButton("save.topics", label = "Save changes")
 )
 
+#### Songbooks ####
+
+manage.songbooks.info = list(
+  table = "wsdb.songbooks",
+  columns = data.frame(
+    column.name = c("SongbookID", "SongbookName", "SongbookAbbreviation",
+                    "IncludeInSearch", "Created", "Updated"),
+    key.table = rep(NA_character_, 6),
+    key.label = rep(NA_character_, 6),
+    width = c(100, 500, 100, 100, 100, 100),
+    type = c("numeric", "text", "text", "text", "date", "date"),
+    editable = c(F, T, T, T, F, F),
+    html = rep(F, 6),
+    stringsAsFactors = F
+  ),
+  fixed.cols = 1,
+  sort = c("SongbookName"),
+  key = "SongbookID",
+  related.label.tables = c(),
+  related.selectors = c("process.songbook.id"),
+  related.processing.table = T
+)
+
+manage.songbooks = tabPanel(
+  "Songbooks",
+  rHandsontableOutput("songbooks"),
+  actionButton("save.songbooks", label = "Save changes")
+)
+
+#### Songbook volumes ####
+
+manage.songbook.volumes.info = list(
+  table = "wsdb.songbookvolumes",
+  columns = data.frame(
+    column.name = c("SongbookVolumeID", "SongbookVolume", "Created", "Updated"),
+    key.table = rep(NA_character_, 4),
+    key.label = rep(NA_character_, 4),
+    width = c(100, 400, 100, 100),
+    type = c("numeric", "text", "date", "date"),
+    editable = c(F, T, F, F),
+    html = rep(F, 4),
+    stringsAsFactors = F
+  ),
+  fixed.cols = 1,
+  sort = c("SongbookVolume"),
+  key = "SongbookVolumeID",
+  related.label.tables = c(),
+  related.selectors = c("process.songbook.volume.id"),
+  related.processing.table = T
+)
+
+manage.songbook.volumes = tabPanel(
+  "Songbook volumes",
+  rHandsontableOutput("songbook.volumes"),
+  actionButton("save.songbook.volumes", label = "Save changes")
+)
+
 #### Combined info ####
 
 # List with everything
@@ -449,7 +506,9 @@ reference.table.info = list(
   modes = manage.modes.info,
   key.signatures = manage.key.signatures.info,
   time.signatures = manage.time.signatures.info,
-  topics = manage.topics.info
+  topics = manage.topics.info,
+  songbooks = manage.songbooks.info,
+  songbook.volumes = manage.songbook.volumes.info
 )
 
 # Use data on columns to create SELECT, UPDATE, INSERT, and DELETE statements
@@ -505,6 +564,8 @@ reference.tables.page = tabPanel("Manage reference tables",
                                    manage.key.signatures,
                                    manage.time.signatures,
                                    manage.topics,
+                                   manage.songbooks,
+                                   manage.songbook.volumes,
                                    widths = c(2, 10)
                         ))
 
