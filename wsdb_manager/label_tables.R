@@ -60,11 +60,7 @@ arrangement.type.labels.sql = "SELECT ArrangementTypeID, ArrangementTypeLabel
 arrangement.labels.sql = "SELECT ArrangementID, ArrangementLabel
                           FROM wsdb.arrangement_labels"
 
-song.instance.labels.sql = "SELECT NULL AS SongInstanceID,
-                                   '' COLLATE utf8_unicode_ci AS SongInstanceLabel
-                            FROM dual
-                            UNION ALL
-                            SELECT SongInstanceID, SongInstanceLabel
+song.instance.labels.sql = "SELECT SongInstanceID, SongInstanceLabel
                             FROM wsdb.songinstance_labels"
 
 topic.labels.sql = "SELECT TopicID, TopicLabel
