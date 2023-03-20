@@ -177,42 +177,23 @@ ORDER BY SongbookVolume;
 CREATE OR REPLACE VIEW wsdb.songinstance_labels AS
 WITH keysignatures_concat AS
      (SELECT songinstances.SongInstanceID,
-             GROUP_CONCAT(CONCAT(pitches.PitchName,
-                                 CONCAT(CASE WHEN accidentals.AccidentalID = 1 THEN ''
-                                             ELSE accidentals.AccidentalSymbol
-										END,
-                                        CASE WHEN modes.ModeID = 1 THEN ''
-                                             WHEN modes.ModeID = 2 THEN 'm'
-                                             ELSE CONCAT(' ', modes.ModeName)
-									    END))
-						  ORDER BY pitches.PitchName,
-                                   accidentals.AccidentalID,
-                                   modes.ModeID
+             GROUP_CONCAT(keysignature_labels.KeySignatureLabel
                           SEPARATOR ', ') AS KeySignatures
 	  FROM wsdb.songinstances
            JOIN wsdb.songinstances_keysignatures
            ON songinstances.SongInstanceID = songinstances_keysignatures.SongInstanceID
-           JOIN wsdb.keysignatures
-           ON songinstances_keysignatures.KeySignatureID = keysignatures.KeySignatureID
-		   JOIN wsdb.pitches
-           ON keysignatures.PitchID = pitches.PitchID
-           JOIN wsdb.accidentals
-           ON keysignatures.AccidentalID = accidentals.AccidentalID
-           JOIN wsdb.modes
-           ON keysignatures.ModeID = modes.ModeID
+           JOIN wsdb.keysignature_labels
+           ON songinstances_keysignatures.KeySignatureID = keysignature_labels.KeySignatureID
 	  GROUP BY songinstances.SongInstanceID),
      timesignatures_concat AS
 	 (SELECT songinstances.SongInstanceID,
-             GROUP_CONCAT(CONCAT(timesignatures.TimeSignatureBeat,
-                                 CONCAT('/', timesignatures.TimeSignatureMeasure))
-                          ORDER BY timesignatures.TimeSignatureMeasure,
-                                   timesignatures.TimeSignatureBeat
+             GROUP_CONCAT(timesignature_labels.TimeSignatureLabel
                           SEPARATOR ', ') AS TimeSignatures
       FROM wsdb.songinstances
            JOIN wsdb.songinstances_timesignatures
            ON songinstances.SongInstanceID = songinstances_timesignatures.SongInstanceID
-           JOIN wsdb.timesignatures
-           ON songinstances_timesignatures.TimeSignatureID = timesignatures.TimeSignatureID
+           JOIN wsdb.timesignature_labels
+           ON songinstances_timesignatures.TimeSignatureID = timesignature_labels.TimeSignatureID
 	  GROUP BY songinstances.SongInstanceID)
 SELECT songinstances.SongInstanceID,
        CONCAT('<b>',
