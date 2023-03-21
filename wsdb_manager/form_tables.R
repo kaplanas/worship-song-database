@@ -532,11 +532,13 @@ save.form.table = function(form.table, changes, manage.id, db.con,
       {
         dbGetQuery(db.con, sql)
         id = dbGetQuery(db.con, "SELECT LAST_INSERT_ID() AS NEW_ID")$NEW_ID[1]
-        show.changes.saved(T)
+        show.changes.saved(T,
+                           db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                           sql))
       },
       error = function(err) {
         print(err)
-        show.changes.saved(F)
+        show.changes.saved(F, err.msg = err)
       }
     )
     
@@ -554,11 +556,13 @@ save.form.table = function(form.table, changes, manage.id, db.con,
     tryCatch(
       {
         dbGetQuery(db.con, sql)
-        show.changes.saved(T)
+        show.changes.saved(T,
+                           db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                           sql))
       },
       error = function(err) {
         print(err)
-        show.changes.saved(F)
+        show.changes.saved(F, err.msg = err)
       }
     )
     
@@ -579,11 +583,13 @@ save.form.table = function(form.table, changes, manage.id, db.con,
         tryCatch(
           {
             dbGetQuery(db.con, sql)
-            show.changes.saved(T)
+            show.changes.saved(T,
+                               db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                               sql))
           },
           error = function(err) {
             print(err)
-            show.changes.saved(F)
+            show.changes.saved(F, err.msg = err)
           }
         )
       }
@@ -600,11 +606,13 @@ save.form.table = function(form.table, changes, manage.id, db.con,
           tryCatch(
             {
               dbGetQuery(db.con, s)
-              show.changes.saved(T)
+              show.changes.saved(T,
+                                 db.table = gsub("^.*(wsdb\\.[a-z_]+).*$",
+                                                 "\\1", s))
             },
             error = function(err) {
               print(err)
-              show.changes.saved(F)
+              show.changes.saved(F, err.msg = err)
             }
           )
         }
@@ -631,11 +639,12 @@ delete.form.table = function(form.table, manage.id, db.con) {
   tryCatch(
     {
       dbGetQuery(db.con, sql)
-      show.changes.saved(T)
+      show.changes.saved(T,
+                         db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1", sql))
     },
     error = function(err) {
       print(err)
-      show.changes.saved(F)
+      show.changes.saved(F, err.msg = err)
     }
   )
   

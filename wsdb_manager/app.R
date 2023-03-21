@@ -21,11 +21,13 @@ source("summary.R", local = T)
 theme_set(theme_bw())
 
 # Notifications
-show.changes.saved = function(success) {
+show.changes.saved = function(success, db.table = NULL, err.msg = NULL) {
   if(success) {
-    showNotification("Changes saved", type = "message")
+    showNotification(paste("Changes saved to", db.table, sep = " "),
+                     type = "message")
   } else {
-    showNotification("Some changes may not have been saved", type = "error")
+    showNotification(paste("Some changes may not have been saved", err.msg,
+                           sep = "\n"), type = "error")
   }
 }
 

@@ -713,11 +713,13 @@ save.reference.table = function(reference.table, db.con,
         {
           dbGetQuery(db.con, s)
           reactive.reference.changes[[reference.table]]$edit = c()
-          show.changes.saved(T)
+          show.changes.saved(T,
+                             db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                             sql))
         },
         error = function(err) {
           print(err)
-          show.changes.saved(F)
+          show.changes.saved(F, err.msg = err)
         }
       )
     }
@@ -738,11 +740,13 @@ save.reference.table = function(reference.table, db.con,
           {
             dbGetQuery(db.con, s)
             reactive.reference.changes[[reference.table]]$insert = F
-            show.changes.saved(T)
+            show.changes.saved(T,
+                               db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                               s))
           },
           error = function(err) {
             print(err)
-            show.changes.saved(F)
+            show.changes.saved(F, err.msg = err)
           }
         )
       }
@@ -762,11 +766,13 @@ save.reference.table = function(reference.table, db.con,
       {
         dbGetQuery(db.con, sql)
         reactive.reference.changes[[reference.table]]$delete = F
-        show.changes.saved(T)
+        show.changes.saved(T,
+                           db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                           sql))
       },
       error = function(err) {
         print(err)
-        show.changes.saved(F)
+        show.changes.saved(F, err.msg = err)
       }
     )
     
