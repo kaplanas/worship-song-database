@@ -11,9 +11,7 @@ SELECT ArtistID,
        CONCAT(CASE WHEN FirstName IS NULL THEN ''
                    ELSE CONCAT(FirstName, ' ')
 			  END,
-              CONCAT(LastName,
-                     CONCAT(' (',
-                            CONCAT(ArtistID, ')')))) AS ArtistLabel
+              LastName, ' (', ArtistID, ')') AS ArtistLabel
 FROM wsdb.artists
 ORDER BY LastName, FirstName;
 
@@ -46,11 +44,9 @@ ORDER BY BookID;
 -- Scripture reference labels.  Standard Book Chapter:Verse format.
 CREATE OR REPLACE VIEW wsdb.scripturereference_labels AS
 SELECT scripturereferences.ScriptureReferenceID,
-       CONCAT(booksofthebible.BookAbbreviation,
-              CONCAT(' ',
-                     CONCAT(scripturereferences.Chapter,
-                            CONCAT(':',
-                                   scripturereferences.Verse)))) AS ScriptureReferenceLabel
+       CONCAT(booksofthebible.BookAbbreviation, ' ',
+              scripturereferences.Chapter, ':',
+              scripturereferences.Verse) AS ScriptureReferenceLabel
 FROM wsdb.scripturereferences
      JOIN wsdb.booksofthebible
      ON scripturereferences.BookID = booksofthebible.BookID
@@ -97,13 +93,13 @@ ORDER BY ModeID;
 CREATE OR REPLACE VIEW wsdb.keysignature_labels AS
 SELECT KeySignatureID,
        CONCAT(PitchName,
-              CONCAT(CASE WHEN accidentals.AccidentalID = 3 THEN ''
-                          ELSE accidentals.AccidentalSymbol
-					 END,
-                     CASE WHEN modes.ModeID = 1 THEN ''
-                          WHEN modes.ModeID = 2 THEN 'm'
-                          ELSE CONCAT(' ', modes.ModeName)
-					 END)) AS KeySignatureLabel
+              CASE WHEN accidentals.AccidentalID = 3 THEN ''
+                   ELSE accidentals.AccidentalSymbol
+			  END,
+			  CASE WHEN modes.ModeID = 1 THEN ''
+                   WHEN modes.ModeID = 2 THEN 'm'
+                   ELSE CONCAT(' ', modes.ModeName)
+			  END) AS KeySignatureLabel
 FROM wsdb.keysignatures
      JOIN wsdb.pitches
      ON keysignatures.PitchID = pitches.PitchID
@@ -120,8 +116,7 @@ ORDER BY pitches.PitchName,
 -- Time signature labels.  Sort by measure, then beat.
 CREATE OR REPLACE VIEW wsdb.timesignature_labels AS
 SELECT TimeSignatureID,
-       CONCAT(TimeSignatureBeat,
-              CONCAT('/', TimeSignatureMeasure)) AS TimeSignatureLabel
+       CONCAT(TimeSignatureBeat, '/', TimeSignatureMeasure) AS TimeSignatureLabel
 FROM wsdb.timesignatures
 ORDER BY TimeSignatureMeasure, TimeSignatureBeat;
 
@@ -130,11 +125,10 @@ ORDER BY TimeSignatureMeasure, TimeSignatureBeat;
 CREATE OR REPLACE VIEW wsdb.lyrics_labels AS
 SELECT LyricsID,
        CONCAT(FirstLine,
-              CONCAT(CASE WHEN RefrainFirstLine IS NULL THEN ''
-                          ELSE CONCAT('<br/>', RefrainFirstLine)
-			         END,
-                     CONCAT('<br/>(',
-                            CONCAT(LyricsID, ')')))) AS LyricsLabel
+              CASE WHEN RefrainFirstLine IS NULL THEN ''
+				   ELSE CONCAT('<br/>', RefrainFirstLine)
+			  END,
+              '<br/>(', LyricsID, ')') AS LyricsLabel
 FROM wsdb.lyrics
 ORDER BY FirstLine, RefrainFirstLine;
 
@@ -153,9 +147,7 @@ ORDER BY ArrangementType;
 -- Arrangement labels.  Include ID for uniqueness.
 CREATE OR REPLACE VIEW wsdb.arrangement_labels AS
 SELECT ArrangementID,
-       CONCAT(ArrangementName,
-              CONCAT(' (',
-                     CONCAT(ArrangementID, ')'))) AS ArrangementLabel
+       CONCAT(ArrangementName, ' (', ArrangementID, ')') AS ArrangementLabel
 FROM wsdb.arrangements
 ORDER BY ArrangementName, ArrangementID;
 
@@ -196,20 +188,16 @@ WITH keysignatures_concat AS
            ON songinstances_timesignatures.TimeSignatureID = timesignature_labels.TimeSignatureID
 	  GROUP BY songinstances.SongInstanceID)
 SELECT songinstances.SongInstanceID,
-       CONCAT('<b>',
-              CONCAT(songinstances.SongInstance,
-                     CONCAT(' (',
-                            CONCAT(songinstances.SongInstanceID,
-								   ')</b>\n',
-                                   CONCAT(IFNULL(keysignatures_concat.KeySignatures, ''),
-								          CONCAT(CASE WHEN keysignatures_concat.KeySignatures IS NOT NULL
-                                                           AND timesignatures_concat.TimeSignatures IS NOT NULL
-													       THEN '; '
-											          ELSE ''
-										         END,
-                                                 CONCAT(IFNULL(timesignatures_concat.TimeSignatures, ''),
-                                                        CONCAT('\n',
-                                                               IFNULL(arrangements.ArrangementName, ''))))))))) AS SongInstanceLabel
+       CONCAT('<b>', songinstances.SongInstance, ' (',
+              songinstances.SongInstanceID, ')</b>\n',
+              IFNULL(keysignatures_concat.KeySignatures, ''),
+			  CASE WHEN keysignatures_concat.KeySignatures IS NOT NULL
+                        AND timesignatures_concat.TimeSignatures IS NOT NULL
+						THEN '; '
+				   ELSE ''
+			  END,
+              IFNULL(timesignatures_concat.TimeSignatures, ''),
+              '\n', IFNULL(arrangements.ArrangementName, '')) AS SongInstanceLabel
 FROM wsdb.songinstances
      LEFT JOIN keysignatures_concat
      ON songinstances.SongInstanceID = keysignatures_concat.SongInstanceID
