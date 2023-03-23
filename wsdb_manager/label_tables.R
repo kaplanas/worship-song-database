@@ -66,6 +66,12 @@ song.instance.labels.sql = "SELECT SongInstanceID, SongInstanceLabel
 topic.labels.sql = "SELECT TopicID, TopicLabel
                     FROM wsdb.topic_labels"
 
+song.type.labels.sql = "SELECT SongTypeID, SongTypeLabel
+                        FROM wsdb.songtype_labels"
+
+song.tempo.labels.sql = "SELECT SongTempoID, SongTempoLabel
+                         FROM wsdb.songtempo_labels"
+
 song.labels.sql = "SELECT SongID, SongLabel
                    FROM wsdb.song_labels"
 
@@ -90,6 +96,8 @@ label.table.sql = list(
   arrangement.labels = arrangement.labels.sql,
   song.instance.labels = song.instance.labels.sql,
   topic.labels = topic.labels.sql,
+  song.type.labels = song.type.labels.sql,
+  song.tempo.labels = song.tempo.labels.sql,
   song.labels = song.labels.sql,
   arrangement.type.labels = arrangement.type.labels.sql
 )

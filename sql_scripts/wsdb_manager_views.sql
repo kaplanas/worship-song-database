@@ -214,6 +214,18 @@ SELECT TopicID, TopicName as TopicLabel
 FROM wsdb.topics
 ORDER BY TopicName;
 
+-- Song type labels.
+CREATE OR REPLACE VIEW wsdb.songtype_labels AS
+SELECT SongTypeID, SongType AS SongTypeLabel
+FROM wsdb.songtypes
+ORDER BY SongTypeID;
+
+-- Song tempo labels.
+CREATE OR REPLACE VIEW wsdb.songtempo_labels AS
+SELECT SongTempoID, SongTempo AS SongTempoLabel
+FROM wsdb.songtempi
+ORDER BY SongTempoID;
+
 -- Song labels.  Title plus disambiguator (if present).
 CREATE OR REPLACE VIEW wsdb.song_labels AS
 SELECT SongID,

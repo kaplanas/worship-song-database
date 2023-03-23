@@ -103,12 +103,14 @@ manage.songs.info = list(
   select.label = "Choose song:",
   columns = data.frame(
     column.name = c("SongID", "SongName", "SongDisambiguator", "TopicID",
-                    "Created", "Updated"),
-    key.table = c(NA, NA, NA, "topic.labels", NA, NA),
-    key.label = c(NA, NA, NA, "TopicLabel", NA, NA),
-    multi.table = c(NA, NA, NA, "wsdb.songs_topics", NA, NA),
-    type = c("numeric", "text", "text", "text", "date", "date"),
-    editable = c(F, T, T, T, F, F),
+                    "SongTypeID", "SongTempoID", "Created", "Updated"),
+    key.table = c(NA, NA, NA, "topic.labels", "song.type.labels",
+                  "song.tempo.labels", NA, NA),
+    key.label = c(NA, NA, NA, "TopicLabel", "SongTypeLabel", "SongTempoLabel",
+                  NA, NA),
+    multi.table = c(NA, NA, NA, "wsdb.songs_topics", NA, NA, NA, NA),
+    type = c("numeric", "text", "text", "text", "text", "text", "date", "date"),
+    editable = c(F, T, T, T, T, T, F, F),
     stringsAsFactors = F
   ),
   sort = c("SongName", "SongDisambiguator"),
@@ -385,7 +387,9 @@ form.table.info$songs$tab.panel = tabPanel(
     column(6, form.table.info$songs$form.elements$songs.SongDisambiguator)
   ),
   fluidRow(
-    column(12, form.table.info$songs$form.elements$songs.TopicID)
+    column(6, form.table.info$songs$form.elements$songs.TopicID),
+    column(3, form.table.info$songs$form.elements$songs.SongTypeID),
+    column(3, form.table.info$songs$form.elements$songs.SongTempoID)
   )
 )
 

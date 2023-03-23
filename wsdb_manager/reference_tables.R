@@ -31,15 +31,15 @@ manage.genders = tabPanel(
 manage.artists.info = list(
   table = "wsdb.artists",
   columns = data.frame(
-    column.name = c("ArtistID", "LastName", "FirstName", "GenderID", "Created",
-                    "Updated"),
-    key.table = c(NA, NA, NA, "gender.labels", NA, NA),
-    key.label = c(NA, NA, NA, "GenderLabel", NA, NA),
-    width = c(150, 100, 100, 100, 100, 100),
-    type = c("numeric", "text", "text", "dropdown", "date",
+    column.name = c("ArtistID", "LastName", "FirstName", "GenderID",
+                    "Restoration", "Created", "Updated"),
+    key.table = c(NA, NA, NA, "gender.labels", NA, NA, NA),
+    key.label = c(NA, NA, NA, "GenderLabel", NA, NA, NA),
+    width = c(150, 100, 100, 100, 80, 100, 100),
+    type = c("numeric", "text", "text", "dropdown", "checkbox", "date",
              "date"),
-    editable = c(F, T, T, T, F, F),
-    html = rep(F, 6),
+    editable = c(F, T, T, T, T, F, F),
+    html = rep(F, 7),
     stringsAsFactors = F
   ),
   fixed.cols = 3,
@@ -432,6 +432,62 @@ manage.topics = tabPanel(
   actionButton("save.topics", label = "Save changes")
 )
 
+#### Song types ####
+
+manage.song.types.info = list(
+  table = "wsdb.songtypes",
+  columns = data.frame(
+    column.name = c("SongTypeID", "SongType", "Created", "Updated"),
+    key.table = rep(NA_character_, 4),
+    key.label = rep(NA_character_, 4),
+    width = c(100, 200, 100, 100),
+    type = c("numeric", "text", "date", "date"),
+    editable = c(F, T, F, F),
+    html = rep(F, 4),
+    stringsAsFactors = F
+  ),
+  fixed.cols = 1,
+  sort = c("SongTypeID"),
+  key = "SongTypeID",
+  related.label.tables = c("song.type.labels"),
+  related.selectors = c(),
+  related.processing.table = F
+)
+
+manage.song.types = tabPanel(
+  "Song types",
+  rHandsontableOutput("song.types"),
+  actionButton("save.song.types", label = "Save changes")
+)
+
+#### Song tempi ####
+
+manage.song.tempi.info = list(
+  table = "wsdb.songtempi",
+  columns = data.frame(
+    column.name = c("SongTempoID", "SongTempo", "Created", "Updated"),
+    key.table = rep(NA_character_, 4),
+    key.label = rep(NA_character_, 4),
+    width = c(100, 200, 100, 100),
+    type = c("numeric", "text", "date", "date"),
+    editable = c(F, T, F, F),
+    html = rep(F, 4),
+    stringsAsFactors = F
+  ),
+  fixed.cols = 1,
+  sort = c("SongTempoID"),
+  key = "SongTempoID",
+  related.label.tables = c("song.tempo.labels"),
+  related.selectors = c(),
+  related.processing.table = F
+)
+
+manage.song.tempi = tabPanel(
+  "Song tempi",
+  rHandsontableOutput("song.tempi"),
+  actionButton("save.song.tempi", label = "Save changes")
+)
+
 #### Songbooks ####
 
 manage.songbooks.info = list(
@@ -507,6 +563,8 @@ reference.table.info = list(
   key.signatures = manage.key.signatures.info,
   time.signatures = manage.time.signatures.info,
   topics = manage.topics.info,
+  song.types = manage.song.types.info,
+  song.tempi = manage.song.tempi.info,
   songbooks = manage.songbooks.info,
   songbook.volumes = manage.songbook.volumes.info
 )
@@ -564,6 +622,8 @@ reference.tables.page = tabPanel("Manage reference tables",
                                    manage.key.signatures,
                                    manage.time.signatures,
                                    manage.topics,
+                                   manage.song.types,
+                                   manage.song.tempi,
                                    manage.songbooks,
                                    manage.songbook.volumes,
                                    widths = c(2, 10)
@@ -715,7 +775,7 @@ save.reference.table = function(reference.table, db.con,
           reactive.reference.changes[[reference.table]]$edit = c()
           show.changes.saved(T,
                              db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
-                                             sql))
+                                             s))
         },
         error = function(err) {
           print(err)
