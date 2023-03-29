@@ -146,6 +146,7 @@ create.worship.history.hot = function(df, reactive.label.tables, window.width,
         song.instance.options = reactive.label.tables$song.instance.labels %>%
           filter(SongID == song.id) %>%
           pull(SongInstanceLabel)
+        song.instance.options = c("", song.instance.options)
         temp.hot = temp.hot %>%
           hot_col(col = "SongInstanceLabel", type = "dropdown", strict = F,
                   source = song.instance.options)

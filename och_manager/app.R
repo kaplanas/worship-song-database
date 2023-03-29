@@ -372,6 +372,9 @@ server <- function(input, output, session) {
       save.worship.history.table(worship.history.processing,
                                  input$process.wh.congregation.id,
                                  input$process.wh.date, label.tables, och.con())
+      for(sn in c("process.wh.congregation.id", "process.wh.date")) {
+        selector.refresh[[sn]] = T
+      }
       worship.history.processing$refresh = T
       summary.refresh$songbook.counts = T
     })
