@@ -1,10 +1,11 @@
 #### Processing table info ####
 
 process.worship.history.info = list(
-  select.sql = "SELECT worshiphistory.WorshipHistoryID,
-                       worshiphistory.WorshipDate, worshiphistory.RawLine,
+  select.sql = "SELECT worshiphistory.WorshipHistoryID, worshiphistory.RawLine,
                        worshiphistory.Processed, song_labels.SongLabel,
-                       songinstance_labels.SongInstanceLabel
+                       songinstance_labels.SongInstanceLabel,
+                       worshiphistory.FileName, worshiphistory.Created,
+                       worshiphistory.Updated
                 FROM och.worshiphistory
                      LEFT JOIN wsdb.song_labels
                      ON worshiphistory.SongID = song_labels.SongID
@@ -14,11 +15,11 @@ process.worship.history.info = list(
                       AND worshiphistory.WorshipDate = {process.wh.date}
                 ORDER BY WorshipHistoryID",
   columns = data.frame(
-    column.name = c("WorshipHistoryID", "WorshipDate", "RawLine", "Processed",
-                    "SongID", "SongInstanceID"),
-    displayed = c(F, F, T, T, T, T),
-    editable = c(F, F, F, T, T, T),
-    width = c(NA, NA, 200, 80, 300, 400),
+    column.name = c("WorshipHistoryID", "RawLine", "Processed", "SongID",
+                    "SongInstanceID", "FileName", "Created", "Updated"),
+    displayed = c(F, T, T, T, T, T, T, T),
+    editable = c(F, F, T, T, T, F, F, F),
+    width = c(NA, 200, 80, 300, 400, 300, 100, 100),
     stringsAsFactors = F
   ),
   update.sql = "UPDATE och.worshiphistory
@@ -42,17 +43,24 @@ process.worship.history.info = list(
 
 upload.worship.history = tabPanel(
   "Upload worship history",
-  selectizeInput("wh.file.congregation.id", "Choose congregation:",
-                 choices = list()),
+  uiOutput("wh.file.congregation.id"),
+  selectizeInput("wh.file.type", label = "File type:",
+                 choices = c("Spreadsheet", "Bulletin")),
   fileInput("wh.file", label = "", multiple = F,
-            accept = c(".csv", ".xls", ".xlsx", "pdf"),
+            accept = c(".xls", ".xlsx", "pdf"),
             buttonLabel = "Choose file..."),
+  checkboxInput("wh.file.overwrite",
+                label = "Overwrite dates that have already been entered?"),
   actionButton("upload.wh.file", label = "Save file")
 )
 
 process.worship.history = tabPanel(
   "Process worship history",
   fluidRow(
+    column(
+      2,
+      actionButton("refresh.process.wh", label = "Refresh data")
+    ),
     column(
       4,
       uiOutput("process.wh.congregation.id")
@@ -62,7 +70,7 @@ process.worship.history = tabPanel(
       checkboxInput("process.wh.show.all.entered", "Show all entered dates")
     ),
     column(
-      5,
+      3,
       uiOutput("process.wh.date")
     )
   ),
@@ -73,7 +81,7 @@ process.worship.history = tabPanel(
 worship.history.page = tabPanel(
   "Upload and process worship history",
   navlistPanel(
-    # upload.worship.history,
+    upload.worship.history,
     process.worship.history,
     well = F,
     widths = c(2, 10)

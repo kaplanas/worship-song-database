@@ -11,6 +11,7 @@ library(tidygeocoder)
 library(shinyWidgets)
 library(lubridate)
 library(aws.s3)
+library(readxl)
 
 #### Useful stuff ####
 
@@ -188,11 +189,9 @@ server <- function(input, output, session) {
       function(sn) {
         
         # Selector list
-        input.dependencies = list()
         purrr::walk(
           selector.info[[sn]]$input.dependencies,
           function(id) {
-            input.dependencies[[id]] = input[[id]]
             observeEvent(input[[id]], {
               sub.input.dependencies = list()
               for(sub.id in selector.info[[sn]]$input.dependencies) {
@@ -204,6 +203,10 @@ server <- function(input, output, session) {
           }
         )
         observeEvent(selector.refresh[[sn]], {
+          input.dependencies = list()
+          for(id in selector.info[[sn]]$input.dependencies) {
+            input.dependencies[[id]] = input[[id]]
+          }
           selector.list[[sn]] = update.selector.list(sn, och.con(),
                                                      input.dependencies)
           selector.refresh[[sn]] = NULL
@@ -213,7 +216,9 @@ server <- function(input, output, session) {
         sel.info = selector.info[[sn]]
         output[[sn]] = renderUI({
           if(sel.info$type == "select") {
-            selectizeInput(sn, sel.info$label, choices = selector.list[[sn]])
+            current.selected = input[[sn]]
+            selectizeInput(sn, sel.info$label, choices = selector.list[[sn]],
+                           selected = current.selected)
           } else if(sel.info$type == "date") {
             min.date = NULL
             max.date = NULL
@@ -271,6 +276,68 @@ server <- function(input, output, session) {
         
       }
     )
+    
+    # When the user uploads a file, write its contents to the S3 bucket
+    observeEvent(input$upload.wh.file, {
+      
+      # Determine the filename
+      filename = reference.tables$congregations %>%
+        filter(CongregationID == input$wh.file.congregation.id) %>%
+        pull(FolderName)
+      filename = paste(filename, "/", filename, "_",
+                       strftime(Sys.time(), "%Y%m%d%H%M%S"), sep = "")
+      
+      # Spreadsheets
+      if(input$wh.file.type == "Spreadsheet") {
+        
+        # Read in as a dataframe
+        wh.file.df = read_excel(input$wh.file$datapath,
+                                col_names = c("WorshipDate", "Song"),
+                                col_types = c("date", "text"))
+        
+        # If the user doesn't want to overwrite previously entered dates,
+        # remove those rows
+        if(!input$wh.file.overwrite) {
+          existing.dates.sql = "SELECT DISTINCT WorshipDate
+                                FROM och.worshiphistory
+                                WHERE CongregationID = {input$wh.file.congregation.id}"
+          existing.dates = ymd(dbGetQuery(och.con(),
+                                          glue_sql(existing.dates.sql,
+                                                   .con = och.con()))$WorshipDate)
+          wh.file.df = wh.file.df %>%
+            filter(!(as.Date(WorshipDate) %in% existing.dates))
+        }
+        
+        # Add the correct suffix to the filename
+        filename = paste(filename, ".csv", sep = "")
+        
+      }
+      
+      # Write the data to a csv in the S3 bucket
+      file.saved = F
+      tryCatch(
+        {
+          s3write_using(wh.file.df, FUN = write.csv,
+                        object = paste("observing_congregational_hymnody",
+                                       filename, sep = "/"),
+                        bucket = "worship-song-database", row.names = F)
+          showNotification("File successfully saved", type = "message")
+        },
+        error = function(err) {
+          print(err)
+          showNotification("Unable to save file", type = "error")
+        }
+      )
+      
+    })
+    
+    # When the user requests a refresh of the processing selectors, do that
+    observeEvent(input$refresh.process.wh, {
+      for(sn in c("process.wh.congregation.id", "process.wh.date")) {
+        selector.refresh[[sn]] = T
+      }
+      worship.history.processing$refresh = T
+    })
     
     # Populate processing table (and refresh as needed)
     observeEvent(

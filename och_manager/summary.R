@@ -7,6 +7,7 @@ congregation.count.info = "SELECT CongregationLabel,
                            FROM och.worshiphistory
                                 JOIN och.congregation_labels
                                 ON worshiphistory.CongregationID = congregation_labels.CongregationID
+                           WHERE Processed
                            GROUP BY CongregationLabel
                            ORDER BY CongregationLabel"
 

@@ -1,6 +1,16 @@
 #### Selectors ####
 
-# Congregations
+# Congregations for file upload
+wh.file.congregation.id = list(
+  type = "select",
+  label = "Choose congregation:",
+  sql = "SELECT CongregationID, CongregationLabel AS SelectorDisplay
+         FROM och.congregation_labels
+         ORDER BY CongregationLabel",
+  input.dependencies = c()
+)
+
+# Congregations for worship history processing
 process.wh.congregation.id = list(
   type = "select",
   label = "Choose congregation:",
@@ -33,7 +43,7 @@ process.wh.date = list(
 
 # List with everything
 selector.info = list(
-  # wh.file.congregation.id = selector.congregations,
+  wh.file.congregation.id = wh.file.congregation.id,
   process.wh.congregation.id = process.wh.congregation.id,
   process.wh.date = process.wh.date
 )
