@@ -331,10 +331,16 @@ server <- function(input, output, session) {
       
     })
     
-    # When the user requests a refresh of the processing selectors, do that
+    # When the user requests a data refresh, do that
     observeEvent(input$refresh.process.wh, {
+      for(lt in names(label.table.sql)) {
+        label.refresh[[lt]] = T
+      }
       for(sn in c("process.wh.congregation.id", "process.wh.date")) {
         selector.refresh[[sn]] = T
+      }
+      for(rt in names(reference.table.info)) {
+        reference.refresh[[rt]] = T
       }
       worship.history.processing$refresh = T
     })
@@ -376,7 +382,9 @@ server <- function(input, output, session) {
         selector.refresh[[sn]] = T
       }
       worship.history.processing$refresh = T
-      summary.refresh$songbook.counts = T
+      for(st in c("song.counts", "congregation.counts")) {
+        summary.refresh[[st]] = T
+      }
     })
 
     # Summary tables

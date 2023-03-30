@@ -16,10 +16,30 @@ congregation.count.table = tabPanel(
   DTOutput("congregation.counts")
 )
 
+#### Counts by song ####
+
+song.count.info = "SELECT SongLabel,
+                          COUNT(DISTINCT CONCAT(WorshipDate, CongregationID)) AS TotalSingings,
+                          COUNT(DISTINCT CongregationID) AS TotalCongregations
+                   FROM och.worshiphistory
+                        JOIN wsdb.song_labels
+                        ON worshiphistory.SongID = song_labels.SongID
+                   WHERE Processed
+                   GROUP BY SongLabel
+                   ORDER BY COUNT(DISTINCT CongregationID) DESC,
+                            COUNT(DISTINCT CONCAT(WorshipDate, CongregationID)) DESC,
+                            SongLabel"
+
+song.count.table = tabPanel(
+  "Table of counts by song",
+  DTOutput("song.counts")
+)
+
 #### Combined info ####
 
 summary.table.sql = list(
-  congregation.counts = congregation.count.info
+  congregation.counts = congregation.count.info,
+  song.counts = song.count.info
 )
 
 #### Viewing page ####
@@ -27,6 +47,7 @@ summary.table.sql = list(
 summary.page = tabPanel("Summary",
                         navlistPanel(
                           congregation.count.table,
+                          song.count.table,
                           well = F,
                           widths = c(2, 10)
                         ))
