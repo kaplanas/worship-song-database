@@ -222,11 +222,16 @@ server <- function(input, output, session) {
           } else if(sel.info$type == "date") {
             min.date = NULL
             max.date = NULL
-            if(length(selector.list[[sn]]) > 0) {
+            selected.date = NULL
+            if(input$process.wh.show.all.entered) {
+              selected.date = Sys.Date()
+            }
+            else if(length(selector.list[[sn]]) > 0 ) {
               min.date = min(selector.list[[sn]])
               max.date = max(selector.list[[sn]])
+              selected.date = min.date
             }
-            airDatepickerInput(sn, sel.info$label, value = min.date,
+            airDatepickerInput(sn, sel.info$label, value = selected.date,
                                minDate = min.date, maxDate = max.date,
                                highlightedDates = selector.list[[sn]])
           }
