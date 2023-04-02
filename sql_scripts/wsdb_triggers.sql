@@ -63,13 +63,14 @@ DELIMITER ;
 
 -- A function that takes a song instance ID and returns a pretty string
 -- the concatenates all the scripture references associated with the
--- song instance.
+-- song instance or metrical psalm.
 
 DROP FUNCTION IF EXISTS wsdb.compute_pretty_scripture_lists;
 
 DELIMITER //
 
-CREATE FUNCTION wsdb.compute_pretty_scripture_lists(song_instance_id INTEGER)
+CREATE FUNCTION wsdb.compute_pretty_scripture_lists(the_id INTEGER,
+                                                    id_type INTEGER)
 RETURNS VARCHAR(1000) DETERMINISTIC
 BEGIN
 	
@@ -85,14 +86,32 @@ BEGIN
     DECLARE loop_done INTEGER;
     DECLARE curs CURSOR FOR
         SELECT BookAbbreviation, Chapter, Verse
-        FROM wsdb.songinstances_lyrics
+        FROM (SELECT SongInstanceID AS TheID, LyricsID
+              FROM wsdb.songinstances_lyrics
+              WHERE SongInstanceID = the_id
+                    AND id_type = 1
+              UNION ALL
+              SELECT MetricalPsalmID AS TheID, LyricsID
+              FROM wsdb.metricalpsalms_lyrics
+              WHERE MetricalPsalmID = the_id
+                    AND id_type = 2
+			  UNION ALL
+              SELECT DISTINCT psalmsongs.SongID AS TheID, LyricsID
+              FROM wsdb.psalmsongs
+                   JOIN wsdb.songinstances
+                   ON psalmsongs.SongID = songinstances.SongID
+                   JOIN wsdb.songinstances_lyrics
+                   ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+			  WHERE PsalmSongID = the_id
+                    AND id_type = 3) id_lyrics
              JOIN wsdb.lyrics_scripturereferences
-             ON songinstances_lyrics.LyricsID = lyrics_scripturereferences.LyricsID
+             ON id_lyrics.LyricsID = lyrics_scripturereferences.LyricsID
 			 JOIN wsdb.scripturereferences
              ON lyrics_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID
              JOIN wsdb.booksofthebible
              ON scripturereferences.BookID = booksofthebible.BookID
-		WHERE songinstances_lyrics.SongInstanceID = song_instance_id
+		WHERE id_type = 1
+              OR booksofthebible.BookID = 19
         ORDER BY booksofthebible.BookID,
 				 scripturereferences.Chapter,
                  scripturereferences.Verse;
@@ -171,8 +190,9 @@ END; //
 DELIMITER ;
 
 -- Every time we change a row in the tables that do the many-to-many
--- mapping between lyrics and song instances, update the appropriate rows
--- in the table that lists the pretty scripture list for each song instances.
+-- mapping between lyrics and song instances or metrical psalms, update
+-- the appropriate rows in the table that lists the pretty scripture list
+-- for each song instances.
 
 DELIMITER //
 
@@ -180,13 +200,26 @@ CREATE TRIGGER wsdb.after_lyrics_scriptures_insert AFTER INSERT ON wsdb.lyrics_s
 FOR EACH ROW
 BEGIN
     
-    DECLARE songinstance_id INTEGER;
+    DECLARE the_id INTEGER;
+    DECLARE id_type INTEGER;
     DECLARE pretty_string VARCHAR(1000);
     DECLARE loop_done INTEGER;
     DECLARE curs CURSOR FOR
-        SELECT DISTINCT SongInstanceID
+        SELECT DISTINCT SongInstanceID AS TheID, 1 AS IDType
         FROM wsdb.songinstances_lyrics
-        WHERE LyricsID = NEW.LyricsID;
+        WHERE LyricsID = NEW.LyricsID
+		UNION ALL
+        SELECT DISTINCT MetricalPsalmID AS TheID, 2 AS IDType
+        FROM wsdb.metricalpsalms_lyrics
+        WHERE LyricsID = NEW.LyricsID
+        UNION ALL
+        SELECT DISTINCT PsalmSongID AS TheID, 3 AS IDType
+        FROM wsdb.psalmsongs
+             JOIN wsdb.songinstances
+             ON psalmsongs.SongID = songinstances.SongID
+             JOIN wsdb.songinstances_lyrics
+             ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+		WHERE LyricsID = NEW.LyricsID;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
     
     OPEN curs;
@@ -194,17 +227,33 @@ BEGIN
     SET loop_done = false;
     read_loop: LOOP
         
-        FETCH curs INTO songinstance_id;
+        FETCH curs INTO the_id, id_type;
         IF loop_done THEN
             LEAVE read_loop;
 		ELSE
-            SET pretty_string = wsdb.compute_pretty_scripture_lists(songinstance_id);
-            INSERT INTO wsdb.prettyscripturelists
-            (SongInstanceID, PrettyScriptureList)
-            VALUES
-            (songinstance_id, pretty_string)
-            ON DUPLICATE KEY UPDATE
-            PrettyScriptureList = pretty_string;
+            SET pretty_string = wsdb.compute_pretty_scripture_lists(the_id, id_type);
+            IF id_type = 1 THEN
+				INSERT INTO wsdb.prettyscripturelists
+				(SongInstanceID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+			ELSEIF id_type = 2 THEN
+				INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+				(MetricalPsalmID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+            ELSEIF id_type = 3 THEN
+				INSERT INTO wsdb.psalmsongs_prettyscripturelists
+				(PsalmSongID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+            END IF;
 		END IF;
         
     END LOOP;
@@ -217,13 +266,26 @@ CREATE TRIGGER wsdb.after_lyrics_scriptures_update AFTER UPDATE ON wsdb.lyrics_s
 FOR EACH ROW
 BEGIN
     
-    DECLARE songinstance_id INTEGER;
+    DECLARE the_id INTEGER;
+    DECLARE id_type INTEGER;
     DECLARE pretty_string VARCHAR(1000);
     DECLARE loop_done INTEGER;
     DECLARE curs CURSOR FOR
-        SELECT DISTINCT SongInstanceID
+        SELECT DISTINCT SongInstanceID AS TheID, 1 AS IDType
         FROM wsdb.songinstances_lyrics
-        WHERE LyricsID = NEW.LyricsID;
+        WHERE LyricsID = NEW.LyricsID
+        UNION ALL
+        SELECT DISTINCT MetricalPsalmID AS  TheID, 2 AS IDType
+        FROM wsdb.metricalpsalms_lyrics
+        WHERE LyricsID = NEW.LyricsID
+        UNION ALL
+        SELECT DISTINCT PsalmSongID AS TheID, 3 AS IDType
+        FROM wsdb.psalmsongs
+             JOIN wsdb.songinstances
+             ON psalmsongs.SongID = songinstances.SongID
+             JOIN wsdb.songinstances_lyrics
+             ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+		WHERE LyricsID = NEW.LyricsID;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
     
     OPEN curs;
@@ -231,17 +293,33 @@ BEGIN
     SET loop_done = false;
     read_loop: LOOP
         
-        FETCH curs INTO songinstance_id;
+        FETCH curs INTO the_id, id_type;
         IF loop_done THEN
             LEAVE read_loop;
 		ELSE
-            SET pretty_string = wsdb.compute_pretty_scripture_lists(songinstance_id);
-            INSERT INTO wsdb.prettyscripturelists
-            (SongInstanceID, PrettyScriptureList)
-            VALUES
-            (songinstance_id, pretty_string)
-            ON DUPLICATE KEY UPDATE
-            PrettyScriptureList = pretty_string;
+            SET pretty_string = wsdb.compute_pretty_scripture_lists(the_id, id_type);
+            IF id_type = 1 THEN
+				INSERT INTO wsdb.prettyscripturelists
+				(SongInstanceID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+			ELSEIF id_type = 2 THEN
+				INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+				(MetricalPsalmID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+            ELSEIF id_type = 3 THEN
+				INSERT INTO wsdb.psalmsongs_prettyscripturelists
+				(PsalmSongID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+            END IF;
 		END IF;
         
     END LOOP;
@@ -254,13 +332,26 @@ CREATE TRIGGER wsdb.after_lyrics_scriptures_delete AFTER DELETE ON wsdb.lyrics_s
 FOR EACH ROW
 BEGIN
     
-    DECLARE songinstance_id INTEGER;
+    DECLARE the_id INTEGER;
+    DECLARE id_type INTEGER;
     DECLARE pretty_string VARCHAR(1000);
     DECLARE loop_done INTEGER;
     DECLARE curs CURSOR FOR
-        SELECT DISTINCT SongInstanceID
+        SELECT DISTINCT SongInstanceID AS TheID, 1 AS IDType
         FROM wsdb.songinstances_lyrics
-        WHERE LyricsID = OLD.LyricsID;
+        WHERE LyricsID = OLD.LyricsID
+        UNION ALL
+        SELECT DISTINCT MetricalPsalmID AS TheID, 2 AS IDType
+        FROM wsdb.metricalpsalms_lyrics
+        WHERE LyricsID = OLD.LyricsID
+        UNION ALL
+        SELECT DISTINCT PsalmSongID AS TheID, 3 AS IDType
+        FROM wsdb.psalmsongs
+             JOIN wsdb.songinstances
+             ON psalmsongs.SongID = songinstances.SongID
+             JOIN wsdb.songinstances_lyrics
+             ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+		WHERE LyricsID = OLD.LyricsID;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
     
     OPEN curs;
@@ -268,17 +359,33 @@ BEGIN
     SET loop_done = false;
     read_loop: LOOP
         
-        FETCH curs INTO songinstance_id;
+        FETCH curs INTO the_id, id_type;
         IF loop_done THEN
             LEAVE read_loop;
 		ELSE
-            SET pretty_string = wsdb.compute_pretty_scripture_lists(songinstance_id);
-            INSERT INTO wsdb.prettyscripturelists
-            (SongInstanceID, PrettyScriptureList)
-            VALUES
-            (songinstance_id, pretty_string)
-            ON DUPLICATE KEY UPDATE
-            PrettyScriptureList = pretty_string;
+            SET pretty_string = wsdb.compute_pretty_scripture_lists(the_id, id_type);
+            IF id_type = 1 THEN
+				INSERT INTO wsdb.prettyscripturelists
+				(SongInstanceID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+			ELSEIF id_type = 2 THEN
+				INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+				(MetricalPsalmID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+            ELSEIF id_type = 3 THEN
+				INSERT INTO wsdb.psalmsongs_prettyscripturelists
+				(PsalmSongID, PrettyScriptureList)
+				VALUES
+				(the_id, pretty_string)
+				ON DUPLICATE KEY UPDATE
+				PrettyScriptureList = pretty_string;
+            END IF;
 		END IF;
         
     END LOOP;
@@ -292,13 +399,45 @@ FOR EACH ROW
 BEGIN
     
     DECLARE pretty_string VARCHAR(1000);
-    SET pretty_string = wsdb.compute_pretty_scripture_lists(NEW.SongInstanceID);
+    DECLARE psalmsong_id INTEGER;
+    DECLARE loop_done INTEGER;
+    DECLARE curs CURSOR FOR
+        SELECT DISTINCT PsalmSongID
+        FROM wsdb.psalmsongs
+             JOIN wsdb.songinstances
+             ON psalmsongs.SongID = songinstances.SongID
+	    WHERE songinstances.SongInstanceID = NEW.SongInstanceID;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
+    
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(NEW.SongInstanceID, 1);
     INSERT INTO wsdb.prettyscripturelists
     (SongInstanceID, PrettyScriptureList)
     VALUES
     (NEW.SongInstanceID, pretty_string)
     ON DUPLICATE KEY UPDATE
     PrettyScriptureList = pretty_string;
+    
+    OPEN curs;
+    
+    SET loop_done = false;
+    read_loop: LOOP
+		
+		FETCH curs INTO psalmsong_id;
+        IF loop_done THEN
+            LEAVE read_loop;
+		ELSE
+            SET pretty_string = wsdb.compute_pretty_scripture_lists(psalmsong_id, 3);
+			INSERT INTO wsdb.psalmsongs_prettyscripturelists
+			(PsalmSongID, PrettyScriptureList)
+			VALUES
+			(psalmsong_id, pretty_string)
+			ON DUPLICATE KEY UPDATE
+			PrettyScriptureList = pretty_string;
+		END IF;
+        
+	END LOOP;
+    
+    CLOSE curs;
     
 END; //
 
@@ -307,20 +446,53 @@ FOR EACH ROW
 BEGIN
     
     DECLARE pretty_string VARCHAR(1000);
-    SET pretty_string = wsdb.compute_pretty_scripture_lists(NEW.SongInstanceID);
+    DECLARE psalmsong_id INTEGER;
+    DECLARE loop_done INTEGER;
+    DECLARE curs CURSOR FOR
+        SELECT DISTINCT PsalmSongID
+        FROM wsdb.psalmsongs
+             JOIN wsdb.songinstances
+             ON psalmsongs.SongID = songinstances.SongID
+	    WHERE songinstances.SongInstanceID = NEW.SongInstanceID
+              OR songinstances.SongInstanceID = OLD.SongInstanceID;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
+    
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(NEW.SongInstanceID, 1);
     INSERT INTO wsdb.prettyscripturelists
     (SongInstanceID, PrettyScriptureList)
     VALUES
     (NEW.SongInstanceID, pretty_string)
     ON DUPLICATE KEY UPDATE
     PrettyScriptureList = pretty_string;
-    SET pretty_string = wsdb.compute_pretty_scripture_lists(OLD.SongInstanceID);
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(OLD.SongInstanceID, 1);
     INSERT INTO wsdb.prettyscripturelists
     (SongInstanceID, PrettyScriptureList)
     VALUES
     (OLD.SongInstanceID, pretty_string)
     ON DUPLICATE KEY UPDATE
     PrettyScriptureList = pretty_string;
+    
+    OPEN curs;
+    
+    SET loop_done = false;
+    read_loop: LOOP
+		
+		FETCH curs INTO psalmsong_id;
+        IF loop_done THEN
+            LEAVE read_loop;
+		ELSE
+            SET pretty_string = wsdb.compute_pretty_scripture_lists(psalmsong_id, 3);
+			INSERT INTO wsdb.psalmsongs_prettyscripturelists
+			(PsalmSongID, PrettyScriptureList)
+			VALUES
+			(psalmsong_id, pretty_string)
+			ON DUPLICATE KEY UPDATE
+			PrettyScriptureList = pretty_string;
+		END IF;
+        
+	END LOOP;
+    
+    CLOSE curs;
     
 END; //
 
@@ -329,11 +501,95 @@ FOR EACH ROW
 BEGIN
     
     DECLARE pretty_string VARCHAR(1000);
-    SET pretty_string = wsdb.compute_pretty_scripture_lists(OLD.SongInstanceID);
+    DECLARE psalmsong_id INTEGER;
+    DECLARE loop_done INTEGER;
+    DECLARE curs CURSOR FOR
+        SELECT DISTINCT PsalmSongID
+        FROM wsdb.psalmsongs
+             JOIN wsdb.songinstances
+             ON psalmsongs.SongID = songinstances.SongID
+	    WHERE songinstances.SongInstanceID = OLD.SongInstanceID;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
+    
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(OLD.SongInstanceID, 1);
     INSERT INTO wsdb.prettyscripturelists
     (SongInstanceID, PrettyScriptureList)
     VALUES
     (OLD.SongInstanceID, pretty_string)
+    ON DUPLICATE KEY UPDATE
+    PrettyScriptureList = pretty_string;
+    
+    OPEN curs;
+    
+    SET loop_done = false;
+    read_loop: LOOP
+		
+		FETCH curs INTO psalmsong_id;
+        IF loop_done THEN
+            LEAVE read_loop;
+		ELSE
+            SET pretty_string = wsdb.compute_pretty_scripture_lists(psalmsong_id, 3);
+			INSERT INTO wsdb.psalmsongs_prettyscripturelists
+			(PsalmSongID, PrettyScriptureList)
+			VALUES
+			(psalmsong_id, pretty_string)
+			ON DUPLICATE KEY UPDATE
+			PrettyScriptureList = pretty_string;
+		END IF;
+        
+	END LOOP;
+    
+    CLOSE curs;
+    
+END; //
+
+CREATE TRIGGER wsdb.after_metricalpsalm_lyrics_insert AFTER INSERT ON wsdb.metricalpsalms_lyrics
+FOR EACH ROW
+BEGIN
+    
+    DECLARE pretty_string VARCHAR(1000);
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(NEW.MetricalPsalmID, 2);
+    INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+    (MetricalPsalmID, PrettyScriptureList)
+    VALUES
+    (NEW.MetricalPsalmID, pretty_string)
+    ON DUPLICATE KEY UPDATE
+    PrettyScriptureList = pretty_string;
+    
+END; //
+
+CREATE TRIGGER wsdb.after_metricalpsalm_lyrics_update AFTER UPDATE ON wsdb.metricalpsalms_lyrics
+FOR EACH ROW
+BEGIN
+    
+    DECLARE pretty_string VARCHAR(1000);
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(NEW.MetricalPsalmID, 2);
+    INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+    (MetricalPsalmID, PrettyScriptureList)
+    VALUES
+    (NEW.MetricalPsalmID, pretty_string)
+    ON DUPLICATE KEY UPDATE
+    PrettyScriptureList = pretty_string;
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(OLD.MetricalPsalmID, 2);
+    INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+    (MetricalPsalmID, PrettyScriptureList)
+    VALUES
+    (OLD.MetricalPsalmID, pretty_string)
+    ON DUPLICATE KEY UPDATE
+    PrettyScriptureList = pretty_string;
+    
+END; //
+
+CREATE TRIGGER wsdb.after_metricalpsalm_lyrics_delete AFTER DELETE ON wsdb.metricalpsalms_lyrics
+FOR EACH ROW
+BEGIN
+    
+    DECLARE pretty_string VARCHAR(1000);
+    SET pretty_string = wsdb.compute_pretty_scripture_lists(OLD.MetricalPsalmID, 2);
+    INSERT INTO wsdb.metricalpsalms_prettyscripturelists
+    (MetricalPsalmID, PrettyScriptureList)
+    VALUES
+    (OLD.MetricalPsalmID, pretty_string)
     ON DUPLICATE KEY UPDATE
     PrettyScriptureList = pretty_string;
     

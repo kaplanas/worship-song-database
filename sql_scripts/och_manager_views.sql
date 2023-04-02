@@ -39,6 +39,8 @@ WITH keysignatures_concat AS
                                       ELSE ' '
 								 END,
                                  IFNULL(songbookentries.EntryNumber, ''))
+						  ORDER BY songbooks.SongbookAbbreviation,
+								   songbookentries.EntryNumber
                           SEPARATOR ', ') AS SongbookEntries
 	  FROM wsdb.songbookentries
            JOIN wsdb.songinstances
@@ -47,8 +49,8 @@ WITH keysignatures_concat AS
            ON songbookentries.SongBookID = songbooks.SongBookID
 	  GROUP BY songinstances.SongInstanceID)
 SELECT songinstances.SongInstanceID, songinstances.SongID,
-       CONCAT('<b>', songinstances.SongInstance, ' (',
-              songinstances.SongInstanceID, ')</b>\n',
+       CONCAT('<b>', songinstances.SongInstance, '</b> (',
+              songinstances.SongInstanceID, ')\n',
               IFNULL(keysignatures_concat.KeySignatures, ''),
 			  CASE WHEN keysignatures_concat.KeySignatures IS NOT NULL
                         AND timesignatures_concat.TimeSignatures IS NOT NULL
