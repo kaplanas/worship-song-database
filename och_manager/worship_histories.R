@@ -47,7 +47,7 @@ upload.worship.history = tabPanel(
   selectizeInput("wh.file.type", label = "File type:",
                  choices = c("Spreadsheet", "Bulletin")),
   fileInput("wh.file", label = "", multiple = F,
-            accept = c(".xls", ".xlsx", "pdf"),
+            accept = c(".xls", ".xlsx", ".pdf"),
             buttonLabel = "Choose file..."),
   checkboxInput("wh.file.overwrite",
                 label = "Overwrite dates that have already been entered?"),
@@ -129,7 +129,7 @@ create.worship.history.hot = function(df, reactive.label.tables, window.width,
       hot_col(col = "Processed", type = "checkbox") %>%
       hot_col(col = "SongLabel", type = "dropdown", strict = T,
               renderer = "html",
-              source = reactive.label.tables$song.labels$SongLabel) %>%
+              source = c("", reactive.label.tables$song.labels$SongLabel)) %>%
       hot_col(col = "SongLabel",
               renderer = htmlwidgets::JS("safeHtmlRenderer")) %>%
       hot_col(col = "SongInstanceLabel", type = "dropdown", strict = F,
@@ -139,7 +139,7 @@ create.worship.history.hot = function(df, reactive.label.tables, window.width,
       hot_col(col = which(!process.worship.history.info$columns$editable[process.worship.history.info$columns$displayed]),
               readOnly = T)
     if(!is.null(selected.row)) {
-      if(!is.na(temp.df[selected.row,"SongLabel"])) {
+      if(!is.na(temp.df[selected.row,"SongLabel"]) & temp.df[selected.row,"SongLabel"] != "") {
         song.id = reactive.label.tables$song.labels %>%
           filter(SongLabel == temp.df[selected.row,"SongLabel"]) %>%
           pull(SongID)
