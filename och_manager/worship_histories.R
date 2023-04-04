@@ -4,8 +4,8 @@ process.worship.history.info = list(
   select.sql = "SELECT worshiphistory.WorshipHistoryID, worshiphistory.RawLine,
                        worshiphistory.Processed, song_labels.SongLabel,
                        songinstance_labels.SongInstanceLabel,
-                       worshiphistory.FileName, worshiphistory.Created,
-                       worshiphistory.Updated
+                       worshiphistory.AmbiguousSong, worshiphistory.FileName,
+                       worshiphistory.Created, worshiphistory.Updated
                 FROM och.worshiphistory
                      LEFT JOIN wsdb.song_labels
                      ON worshiphistory.SongID = song_labels.SongID
@@ -16,23 +16,25 @@ process.worship.history.info = list(
                 ORDER BY WorshipHistoryID",
   columns = data.frame(
     column.name = c("WorshipHistoryID", "RawLine", "Processed", "SongID",
-                    "SongInstanceID", "FileName", "Created", "Updated"),
-    displayed = c(F, T, T, T, T, T, T, T),
-    editable = c(F, F, T, T, T, F, F, F),
-    width = c(NA, 200, 80, 300, 400, 300, 100, 100),
+                    "SongInstanceID", "AmbiguousSong", "FileName", "Created",
+                    "Updated"),
+    displayed = c(F, T, T, T, T, T, T, T, T),
+    editable = c(F, F, T, T, T, T, F, F, F),
+    width = c(NA, 200, 80, 300, 400, 300, 300, 100, 100),
     stringsAsFactors = F
   ),
   update.sql = "UPDATE och.worshiphistory
                 SET Processed = {Processed},
                     SongID = {SongID},
-                    SongInstanceID = {SongInstanceID}
+                    SongInstanceID = {SongInstanceID},
+                    AmbiguousSong = {AmbiguousSong}
                 WHERE WorshipHistoryID = {WorshipHistoryID}",
   insert.sql = "INSERT INTO och.worshiphistory
                 (CongregationID, WorshipDate, RawLine, Processed, SongID,
-                 SongInstanceID)
+                 SongInstanceID, AmbiguousSong)
                 VALUES
                 ({CongregationID}, {WorshipDate}, {RawLine}, {Processed},
-                 {SongID}, {SongInstanceID})",
+                 {SongID}, {SongInstanceID}, {AmbiguousSong})",
   delete.sql = "DELETE FROM och.worshiphistory
                 WHERE CongregationID = {process.wh.congregation.id}
                       AND WorshipDate = {process.wh.date}
@@ -120,8 +122,8 @@ create.worship.history.hot = function(df, reactive.label.tables, window.width,
     if(nrow(temp.df) == 0) {
       temp.df = temp.df %>% add_row()
     }
-    temp.hot = rhandsontable(temp.df, width = window.width * 0.75,
-                             height = window.height * 0.65, rowHeaders = NULL,
+    temp.hot = rhandsontable(temp.df, width = window.width * 0.8,
+                             height = window.height * 0.7, rowHeaders = NULL,
                              overflow = "visible", selectCallback = T) %>%
       hot_context_menu(allowColEdit = F) %>%
       hot_cols(colWidths = process.worship.history.info$columns$width[process.worship.history.info$columns$displayed],
@@ -136,6 +138,9 @@ create.worship.history.hot = function(df, reactive.label.tables, window.width,
               renderer = "html", source = c()) %>%
       hot_col(col = "SongInstanceLabel",
               renderer = htmlwidgets::JS("safeHtmlRenderer")) %>%
+      hot_col(col = "AmbiguousSong", type = "dropdown", strict = F,
+              source = c("",
+                         reactive.label.tables$ambiguous.song.labels$SongName)) %>%
       hot_col(col = which(!process.worship.history.info$columns$editable[process.worship.history.info$columns$displayed]),
               readOnly = T)
     if(!is.null(selected.row)) {
@@ -209,7 +214,7 @@ save.worship.history.table = function(reactive.worship.history.processing,
            WorshipDate = process.wh.date,
            Processed = coalesce(Processed, F)) %>%
     dplyr::select(WorshipHistoryID, CongregationID, WorshipDate, RawLine,
-                  Processed, SongID, SongInstanceID)
+                  Processed, SongID, SongInstanceID, AmbiguousSong)
 
   # If there were edits, issue an UPDATE statement
   if(length(reactive.worship.history.processing$changes$edit) > 0) {
@@ -237,7 +242,7 @@ save.worship.history.table = function(reactive.worship.history.processing,
 
   # If there were inserts, issue an INSERT statement
   if(reactive.worship.history.processing$changes$insert ||
-     (nrow(temp.df) == 1 & is.na(temp.df$WorshipHistoryID))) {
+     (nrow(temp.df) == 1 & any(is.na(temp.df$WorshipHistoryID)))) {
 
     # Attempt to insert new rows
     if(any(is.na(temp.df$WorshipHistoryID))) {

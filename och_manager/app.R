@@ -292,7 +292,9 @@ server <- function(input, output, session) {
       filename.suffix = strftime(Sys.time(), "%Y%m%d%H%M%S")
       if(input$wh.file.type == "Bulletin") {
         trimmed.filename = gsub(".pdf$", "", input$wh.file$name)
-        file.worship.date = parse_date_time(trimmed.filename,
+        file.worship.date = gsub("^.*([0-9]+[-_][0-9]+[-_][0-9]+).*$", "\\1",
+                                 trimmed.filename)
+        file.worship.date = parse_date_time(file.worship.date,
                                             orders = c("mdy"))
         filename.suffix = strftime(file.worship.date, "%Y%m%d")
       }

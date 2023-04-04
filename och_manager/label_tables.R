@@ -9,12 +9,18 @@ song.instance.labels.sql = "SELECT SongInstanceID, SongID, SongInstanceLabel
 song.labels.sql = "SELECT SongID, SongLabel
                    FROM wsdb.song_labels"
 
+ambiguous.song.labels.sql = "SELECT SongName
+                             FROM wsdb.songs
+                             GROUP BY SongName
+                             HAVING COUNT(*) > 1"
+
 #### Combined info ####
 
 label.table.sql = list(
   congregation.labels = congregation.labels.sql,
   song.instance.labels = song.instance.labels.sql,
-  song.labels = song.labels.sql
+  song.labels = song.labels.sql,
+  ambiguous.song.labels = ambiguous.song.labels.sql
 )
 
 #### Useful functions ####
