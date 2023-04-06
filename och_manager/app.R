@@ -129,11 +129,11 @@ server <- function(input, output, session) {
   # Reactive summary tables
   summary.tables = do.call(
     "reactiveValues",
-    lapply(summary.table.sql, function(summary.table) { NULL })
+    lapply(summary.table.info, function(summary.table) { NULL })
   )
   summary.refresh = do.call(
     "reactiveValues",
-    lapply(summary.table.sql, function(summary.table) { T })
+    lapply(summary.table.info, function(summary.table) { T })
   )
   
   # When the user attempts to log in, attempt to create a connection and
@@ -220,7 +220,7 @@ server <- function(input, output, session) {
           if(sel.info$type == "select") {
             current.selected = input[[sn]]
             selectizeInput(sn, sel.info$label, choices = selector.list[[sn]],
-                           selected = current.selected)
+                           selected = current.selected, width = sel.info$width)
           } else if(sel.info$type == "date") {
             min.date = NULL
             max.date = NULL
@@ -292,7 +292,7 @@ server <- function(input, output, session) {
       filename.suffix = strftime(Sys.time(), "%Y%m%d%H%M%S")
       if(input$wh.file.type == "Bulletin") {
         trimmed.filename = gsub(".pdf$", "", input$wh.file$name)
-        file.worship.date = gsub("^.*([0-9]+[-_][0-9]+[-_][0-9]+).*$", "\\1",
+        file.worship.date = gsub("^.*(([0-9]+|January|February|March|April|May|June|July|August|September|October|November|December)[-_ ]+[0-9]+[-_ ,]+[0-9]+).*$", "\\1",
                                  trimmed.filename)
         file.worship.date = parse_date_time(file.worship.date,
                                             orders = c("mdy"))
@@ -398,7 +398,8 @@ server <- function(input, output, session) {
               temp.wh.text =  purrr::map_chr(result$Blocks,
                                              function(b) {
                                                line = b$Text
-                                               if(length(line) == 0) {
+                                               if(length(line) == 0 |
+                                                  b$BlockType != "LINE") {
                                                  line = ""
                                                }
                                                return(line)
@@ -456,6 +457,14 @@ server <- function(input, output, session) {
       worship.history.processing$refresh = T
     })
     
+    # When the user requests to mark all records as processed, do that
+    observeEvent(input$mark.all.processed.wh, {
+      worship.history.processing$table = worship.history.processing$table %>%
+        mutate(Processed = T)
+      worship.history.processing$changes$edit = c(worship.history.processing$changes$edit,
+                                                  worship.history.processing$table$WorshipHistoryID)
+    })
+    
     # Populate processing table (and refresh as needed)
     observeEvent(
       {
@@ -500,16 +509,24 @@ server <- function(input, output, session) {
 
     # Summary tables
     purrr::walk(
-      names(summary.table.sql),
+      names(summary.table.info),
       function(st) {
         observeEvent(summary.refresh[[st]], {
           summary.tables[[st]] = populate.summary.table(st, och.con())
           summary.refresh[[st]] = NULL
         })
         output[[st]] = renderDT({
-          summary.tables[[st]] %>%
-            datatable(options = list(searching = F, paging = F, info = F),
+          temp.dt = summary.tables[[st]] %>%
+            datatable(options = list(searching = F, paging = F, info = F,
+                                     columnDefs = list(list(visible = F,
+                                                            targets = summary.table.info[[st]]$hidden.columns))),
                       rownames = F)
+          if(st == "song.counts") {
+            temp.dt = temp.dt %>%
+              formatStyle("Restoration", target = "row",
+                          backgroundColor = styleEqual("Y", "yellow"))
+          }
+          temp.dt
         })
       }
     )

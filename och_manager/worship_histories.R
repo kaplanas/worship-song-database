@@ -48,7 +48,7 @@ upload.worship.history = tabPanel(
   uiOutput("wh.file.congregation.id"),
   selectizeInput("wh.file.type", label = "File type:",
                  choices = c("Spreadsheet", "Bulletin")),
-  fileInput("wh.file", label = "", multiple = F,
+  fileInput("wh.file", label = "", multiple = F, width = "500px",
             accept = c(".xls", ".xlsx", ".pdf"),
             buttonLabel = "Choose file..."),
   checkboxInput("wh.file.overwrite",
@@ -61,7 +61,12 @@ process.worship.history = tabPanel(
   fluidRow(
     column(
       2,
-      actionButton("refresh.process.wh", label = "Refresh data")
+      fluidRow(
+        actionButton("refresh.process.wh", label = "Refresh data")
+      ),
+      fluidRow(
+        actionButton("mark.all.processed.wh", label = "Mark all as processed")
+      )
     ),
     column(
       4,

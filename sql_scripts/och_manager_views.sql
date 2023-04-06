@@ -35,6 +35,10 @@ WITH keysignatures_concat AS
 	 songbookentries_concat AS
      (SELECT songinstances.SongInstanceID,
 			 GROUP_CONCAT(CONCAT(songbooks.SongbookAbbreviation,
+                                 CASE WHEN songbookvolumes.SongbookVolumeID <> 2
+                                           THEN CONCAT(' ', songbookvolumes.SongbookVolume)
+									  ELSE ''
+								 END,
 								 CASE WHEN songbookentries.EntryNumber IS NULL THEN ''
                                       ELSE ' '
 								 END,
@@ -45,6 +49,8 @@ WITH keysignatures_concat AS
 	  FROM wsdb.songbookentries
            JOIN wsdb.songinstances
            ON songbookentries.SongInstanceID = songinstances.SongInstanceID
+		   LEFT JOIN wsdb.songbookvolumes
+           ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID
 		   JOIN wsdb.songbooks
            ON songbookentries.SongBookID = songbooks.SongBookID
 	  GROUP BY songinstances.SongInstanceID)
@@ -68,3 +74,50 @@ FROM wsdb.songinstances
      ON songinstances.SongInstanceID = songbookentries_concat.SongInstanceID
 ORDER BY songinstances.SongInstance,
          songinstances.SongInstanceID;
+
+-- Songs with restoration-affiliated writers.
+CREATE OR REPLACE VIEW och.restoration_songs AS
+WITH restoration_lyrics AS
+     (SELECT DISTINCT songinstances_lyrics.SongInstanceID
+      FROM wsdb.songinstances_lyrics
+           JOIN wsdb.lyrics_artists
+           ON songinstances_lyrics.LyricsID = lyrics_artists.LyricsID
+           JOIN wsdb.artists
+           ON lyrics_artists.ArtistID = artists.ArtistID
+      WHERE artists.Restoration),
+	 restoration_tune AS
+     (SELECT DISTINCT songinstances_tunes.SongInstanceID
+      FROM wsdb.songinstances_tunes
+           JOIN wsdb.tunes_artists
+           ON songinstances_tunes.TuneID = tunes_artists.TuneID
+           JOIN wsdb.artists
+           ON tunes_artists.ArtistID = artists.ArtistID
+	  WHERE artists.Restoration)
+SELECT DISTINCT songs.SongID
+FROM wsdb.songs
+     LEFT JOIN (SELECT songinstances.SongID
+                FROM wsdb.songinstances
+                     LEFT JOIN restoration_lyrics
+                     ON songinstances.SongInstanceID = restoration_lyrics.SongInstanceID
+				GROUP BY songinstances.SongID
+                HAVING SUM(CASE WHEN restoration_lyrics.SongInstanceID IS NULL THEN 0
+								ELSE 1
+						   END) > 0
+					   AND SUM(CASE WHEN restoration_lyrics.SongInstanceID IS NULL THEN 1
+                                    ELSE 0
+							   END) = 0) all_restoration_lyrics
+     ON songs.SongID = all_restoration_lyrics.SongID
+     LEFT JOIN (SELECT songinstances.SongID
+                FROM wsdb.songinstances
+                     LEFT JOIN restoration_tune
+                     ON songinstances.SongInstanceID = restoration_tune.SongInstanceID
+				GROUP BY songinstances.SongID
+                HAVING SUM(CASE WHEN restoration_tune.SongInstanceID IS NULL THEN 0
+								ELSE 1
+						   END) > 0
+					   AND SUM(CASE WHEN restoration_tune.SongInstanceID IS NULL THEN 1
+                                    ELSE 0
+							   END) = 0) all_restoration_tune
+     ON songs.SongID = all_restoration_tune.SongID
+WHERE all_restoration_lyrics.SongID IS NOT NULL
+      OR all_restoration_tune.SongID IS NOT NULL;

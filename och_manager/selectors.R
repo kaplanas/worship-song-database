@@ -4,6 +4,7 @@
 wh.file.congregation.id = list(
   type = "select",
   label = "Choose congregation:",
+  width = "500px",
   sql = "SELECT CongregationID, CongregationLabel AS SelectorDisplay
          FROM och.congregation_labels
          ORDER BY CongregationLabel",
@@ -14,6 +15,7 @@ wh.file.congregation.id = list(
 process.wh.congregation.id = list(
   type = "select",
   label = "Choose congregation:",
+  width = NULL,
   sql = "SELECT congregation_labels.CongregationID,
                 congregation_labels.CongregationLabel AS SelectorDisplay
          FROM och.congregation_labels
