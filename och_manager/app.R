@@ -77,6 +77,9 @@ ui <- navbarPage(
 # Define server logic
 server <- function(input, output, session) {
   
+  # Allow large file uploads
+  options(shiny.maxRequestSize = 30 * 1024^2)
+  
   # Database connection
   och.con = reactiveVal(NULL)
   
@@ -292,10 +295,17 @@ server <- function(input, output, session) {
       filename.suffix = strftime(Sys.time(), "%Y%m%d%H%M%S")
       if(input$wh.file.type == "Bulletin") {
         trimmed.filename = gsub(".pdf$", "", input$wh.file$name)
-        file.worship.date = gsub("^.*(([0-9]+|January|February|March|April|May|June|July|August|September|October|November|December)[-_ ]+[0-9]+[-_ ,]+[0-9]+).*$", "\\1",
-                                 trimmed.filename)
+        month.abbrs = "jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(tember)?|oct(ober)?|nov(ember)?|dec(ember)?"
+        date.part.1 = paste("([0-9]+|", month.abbrs, ")", sep = "")
+        date.part.2 = paste("([0-9]+|", month.abbrs, ")", sep = "")
+        date.part.3 = "[0-9]+"
+        date.regex = paste(date.part.1, "[-_ ]*", date.part.2, "[-_ ,]*",
+                           date.part.3, sep = "")
+        file.worship.date = regmatches(tolower(trimmed.filename),
+                                       regexpr(date.regex,
+                                               tolower(trimmed.filename)))
         file.worship.date = parse_date_time(file.worship.date,
-                                            orders = c("mdy"))
+                                            orders = c("mdy", "ymd", "dmy"))
         filename.suffix = strftime(file.worship.date, "%Y%m%d")
       }
       
@@ -359,7 +369,8 @@ server <- function(input, output, session) {
                        object = paste("observing_congregational_hymnody",
                                       filename, sep = "/"),
                        bucket = "worship-song-database")
-            showNotification("pdf successfully saved", type = "message")
+            showNotification(paste("pdf successfully saved", filename.suffix,
+                                   sep = "\n"), type = "message")
           },
           error = function(err) {
             print(err)
@@ -385,7 +396,7 @@ server <- function(input, output, session) {
             )
           )
           count = 0
-          while(count <= 30 &&
+          while(count <= 60 &&
                 (!exists("result") || result$JobStatus == "IN_PROGRESS")) {
             Sys.sleep(1)
             result = textract$get_document_text_detection(JobId = resp$JobId)
@@ -427,11 +438,15 @@ server <- function(input, output, session) {
         filename = gsub("pdf$", "csv", filename)
         tryCatch(
           {
-            s3write_using(wh.df, FUN = write.csv,
-                          object = paste("observing_congregational_hymnody",
-                                         filename, sep = "/"), row.names = F,
-                          bucket = "worship-song-database")
-            showNotification("csv successfully saved", type = "message")
+            if(nrow(wh.df) > 0) {
+              s3write_using(wh.df, FUN = write.csv,
+                            object = paste("observing_congregational_hymnody",
+                                           filename, sep = "/"), row.names = F,
+                            bucket = "worship-song-database")
+              showNotification("csv successfully saved", type = "message")
+            } else {
+              showNotification("csv could not be saved", type = "error")
+            }
           },
           error = function(err) {
             print(err)
@@ -517,10 +532,12 @@ server <- function(input, output, session) {
         })
         output[[st]] = renderDT({
           temp.dt = summary.tables[[st]] %>%
+            mutate(across(matches("SongLabel"),
+                          function(x) { gsub("\n", "<br/>", x )})) %>%
             datatable(options = list(searching = F, paging = F, info = F,
                                      columnDefs = list(list(visible = F,
                                                             targets = summary.table.info[[st]]$hidden.columns))),
-                      rownames = F)
+                      rownames = F, escape = F)
           if(st == "song.counts") {
             temp.dt = temp.dt %>%
               formatStyle("Restoration", target = "row",

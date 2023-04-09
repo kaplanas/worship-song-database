@@ -226,12 +226,54 @@ SELECT SongTempoID, SongTempo AS SongTempoLabel
 FROM wsdb.songtempi
 ORDER BY SongTempoID;
 
--- Song labels.  Title plus disambiguator (if present).
+-- Song labels.  Title plus disambiguator (if present) plus one line
+-- of lyrics.
 CREATE OR REPLACE VIEW wsdb.song_labels AS
-SELECT SongID,
-       CONCAT(SongName,
-			  CASE WHEN SongDisambiguator IS NULL THEN ''
-				   ELSE CONCAT(' (', CONCAT(SongDisambiguator, ')'))
+WITH all_song_lyrics AS
+     (SELECT songinstances.SongID,
+			 COALESCE(lyrics.RefrainFirstLine,
+                      lyrics.FirstLine, '') AS LyricsLine,
+             COUNT(*) AS NumInstances,
+			 lyrics.LyricsID,
+             CASE WHEN lyrics.LanguageID IN (1, 2) THEN 'Y'
+                  ELSE 'N'
+			 END AS EnglishOrSpanish,
+             CASE WHEN lyrics.LanguageID = 1 THEN 'Y'
+                  ELSE 'N'
+		     END AS English,
+             CASE WHEN lyrics_translations.LyricsID IS NULL THEN 'N'
+                  ELSE 'Y'
+			 END AS Translation
+      FROM wsdb.songinstances
+           JOIN wsdb.songinstances_lyrics
+           ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+		   JOIN wsdb.lyrics
+           ON songinstances_lyrics.LyricsID = lyrics.LyricsID
+           LEFT JOIN (SELECT DISTINCT LyricsID
+                      FROM wsdb.lyrics_translations) lyrics_translations
+		   ON lyrics.LyricsID = lyrics_translations.LyricsID
+	  GROUP BY songinstances.SongID,
+               COALESCE(lyrics.RefrainFirstLine, lyrics.FirstLine, ''),
+               lyrics.LyricsID)
+SELECT songs.SongID,
+       CONCAT('<b>', songs.SongName,
+			  CASE WHEN songs.SongDisambiguator IS NULL THEN ''
+				   ELSE CONCAT(' (', CONCAT(songs.SongDisambiguator, ')'))
+			  END,
+              '</b>',
+              CASE WHEN song_lyrics.LyricsLine IS NULL THEN ''
+                   ELSE CONCAT('\n', song_lyrics.LyricsLine)
 			  END) AS SongLabel
 FROM wsdb.songs
-ORDER BY SongName, SongDisambiguator;
+     LEFT JOIN (SELECT SongID, LyricsLine,
+                       ROW_NUMBER()
+					   OVER (PARTITION BY SongID
+                             ORDER BY EnglishOrSpanish DESC,
+                                      Translation,
+                                      English DESC,
+                                      NumInstances DESC,
+                                      LyricsID) AS ROWNUM
+                FROM all_song_lyrics) song_lyrics
+	 ON songs.SongID = song_lyrics.SongID
+        AND song_lyrics.ROWNUM = 1
+ORDER BY songs.SongName, songs.SongDisambiguator;
