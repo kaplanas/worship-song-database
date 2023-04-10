@@ -1,8 +1,11 @@
 #### Counts by congregation ####
 
 congregation.count.info = list(
+  type = "table",
   sql = "SELECT CongregationLabel,
                 COUNT(DISTINCT WorshipDate) AS TotalDates,
+                MIN(WorshipDate) AS FirstDate,
+                MAX(WorshipDate) AS LastDate,
                 COUNT(DISTINCT CONCAT(WorshipDate, SongID)) AS TotalSongs,
                 COUNT(DISTINCT SongID) AS TotalUniqueSongs
          FROM och.worshiphistory
@@ -22,6 +25,7 @@ congregation.count.table = tabPanel(
 #### Counts by song ####
 
 song.count.info = list(
+  type = "table",
   sql = "SELECT SongLabel,
                 COUNT(DISTINCT CONCAT(WorshipDate, CongregationID)) AS TotalSingings,
                 COUNT(DISTINCT CongregationID) AS TotalCongregations,
@@ -49,11 +53,50 @@ song.count.table = tabPanel(
   DTOutput("song.counts")
 )
 
+#### Counts by date ####
+
+date.count.info = list(
+  type = "graph",
+  sql = "SELECT WorshipDate,
+                COUNT(DISTINCT CongregationID) AS TotalCongregations,
+                COUNT(DISTINCT CONCAT(CongregationID, SongID)) AS TotalSongs
+         FROM och.worshiphistory
+         WHERE Processed
+         GROUP BY WorshipDate",
+  hidden.columns = c()
+)
+
+date.count.graph = tabPanel(
+  "Graph of counts by date",
+  plotOutput("date.counts", height = "1000px")
+)
+
+#### Map ####
+
+song.count.map.info = list(
+  type = "graph",
+  sql = "SELECT worshiphistory.CongregationID, Latitude, Longitude,
+                COUNT(DISTINCT CONCAT(WorshipDate)) AS TotalDates
+         FROM och.worshiphistory
+              JOIN och.congregations
+              ON worshiphistory.CongregationID = congregations.CongregationID
+         WHERE Processed
+         GROUP BY worshiphistory.CongregationID",
+  hidden.columns = c()
+)
+
+song.count.map = tabPanel(
+  "Map of counts by congregation",
+  plotOutput("song.counts.map", height = "600px")
+)
+
 #### Combined info ####
 
 summary.table.info = list(
   congregation.counts = congregation.count.info,
-  song.counts = song.count.info
+  song.counts = song.count.info,
+  date.counts = date.count.info,
+  song.counts.map = song.count.map.info
 )
 
 #### Viewing page ####
@@ -61,7 +104,9 @@ summary.table.info = list(
 summary.page = tabPanel("Summary",
                         navlistPanel(
                           congregation.count.table,
+                          date.count.graph,
                           song.count.table,
+                          song.count.map,
                           well = F,
                           widths = c(2, 10)
                         ))

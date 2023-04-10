@@ -14,6 +14,7 @@ library(aws.s3)
 library(readxl)
 library(paws)
 library(pdftools)
+library(ggmap)
 
 #### Useful stuff ####
 
@@ -530,21 +531,51 @@ server <- function(input, output, session) {
           summary.tables[[st]] = populate.summary.table(st, och.con())
           summary.refresh[[st]] = NULL
         })
-        output[[st]] = renderDT({
-          temp.dt = summary.tables[[st]] %>%
-            mutate(across(matches("SongLabel"),
-                          function(x) { gsub("\n", "<br/>", x )})) %>%
-            datatable(options = list(searching = F, paging = F, info = F,
-                                     columnDefs = list(list(visible = F,
-                                                            targets = summary.table.info[[st]]$hidden.columns))),
-                      rownames = F, escape = F)
-          if(st == "song.counts") {
-            temp.dt = temp.dt %>%
-              formatStyle("Restoration", target = "row",
-                          backgroundColor = styleEqual("Y", "yellow"))
-          }
-          temp.dt
-        })
+        if(summary.table.info[[st]]$type == "table") {
+          output[[st]] = renderDT({
+            temp.dt = summary.tables[[st]] %>%
+              mutate(across(matches("SongLabel"),
+                            function(x) { gsub("\n", "<br/>", x )})) %>%
+              datatable(options = list(searching = F, paging = F, info = F,
+                                       columnDefs = list(list(visible = F,
+                                                              targets = summary.table.info[[st]]$hidden.columns))),
+                        rownames = F, escape = F)
+            if(st == "song.counts") {
+              temp.dt = temp.dt %>%
+                formatStyle("Restoration", target = "row",
+                            backgroundColor = styleEqual("Y", "yellow"))
+            }
+            temp.dt
+          })
+        } else if(st == "date.counts") {
+          output[[st]] = renderPlot({
+            if(!is.null(summary.tables[[st]])) {
+              summary.tables[[st]] %>%
+                mutate(Year = as.numeric(substr(WorshipDate, 1, 4)),
+                       WorshipDate = paste("2000",
+                                           substr(WorshipDate,
+                                                  5, nchar(WorshipDate)),
+                                           sep = ""),
+                       WorshipDate = ymd(WorshipDate)) %>%
+                ggplot(aes(x = WorshipDate, y = TotalCongregations)) +
+                geom_bar(stat = "identity") +
+                scale_x_date(date_labels = "%b") +
+                facet_grid(Year ~ .) +
+                expand_limits(y = 0)
+            }
+          })
+        } else if(st == "song.counts.map") {
+          usmap = get_stamenmap(bbox = c(bottom = 24.5, top = 49.5,
+                                         right = -66, left = -125),
+                                zoom = 4, maptype = "toner-background")
+          output[[st]] = renderPlot({
+            ggmap(usmap) +
+              geom_point(data = summary.tables[[st]],
+                         aes(x = Longitude, y = Latitude, size = TotalDates),
+                         color = "cornflowerblue", alpha = 0.5) +
+              theme(legend.position = "bottom")
+          })
+        }
       }
     )
 
