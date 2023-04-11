@@ -518,7 +518,8 @@ server <- function(input, output, session) {
         selector.refresh[[sn]] = T
       }
       worship.history.processing$refresh = T
-      for(st in c("song.counts", "congregation.counts")) {
+      for(st in c("song.counts", "congregation.counts", "date.counts",
+                  "song.counts.map")) {
         summary.refresh[[st]] = T
       }
     })
