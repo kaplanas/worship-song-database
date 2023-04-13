@@ -14,12 +14,52 @@ congregation.count.info = list(
          WHERE Processed
          GROUP BY CongregationLabel
          ORDER BY CongregationLabel",
-  hidden.columns = c()
+  hidden.columns = c(),
+  input.dependencies = c()
 )
 
 congregation.count.table = tabPanel(
   "Table of counts by congregation",
   DTOutput("congregation.counts")
+)
+
+#### Map ####
+
+congregation.count.map.info = list(
+  type = "graph",
+  sql = "SELECT worshiphistory.CongregationID, Latitude, Longitude,
+                COUNT(DISTINCT CONCAT(WorshipDate)) AS TotalDates
+         FROM och.worshiphistory
+              JOIN och.congregations
+              ON worshiphistory.CongregationID = congregations.CongregationID
+         WHERE Processed
+         GROUP BY worshiphistory.CongregationID",
+  hidden.columns = c(),
+  input.dependencies = c()
+)
+
+congregation.count.map = tabPanel(
+  "Map of counts by congregation",
+  plotOutput("congregation.counts.map", height = "600px")
+)
+
+#### Counts by date ####
+
+date.count.info = list(
+  type = "graph",
+  sql = "SELECT WorshipDate,
+                COUNT(DISTINCT CongregationID) AS TotalCongregations,
+                COUNT(DISTINCT CONCAT(CongregationID, SongID)) AS TotalSongs
+         FROM och.worshiphistory
+         WHERE Processed
+         GROUP BY WorshipDate",
+  hidden.columns = c(),
+  input.dependencies = c()
+)
+
+date.count.graph = tabPanel(
+  "Graph of counts by date",
+  plotOutput("date.counts", height = "1000px")
 )
 
 #### Counts by song ####
@@ -38,6 +78,8 @@ song.count.info = list(
               LEFT JOIN och.restoration_songs
               ON worshiphistory.SongID = restoration_songs.SongID
          WHERE Processed
+               AND (YEAR(WorshipDate) = {song.count.time}
+                    OR {song.count.time} = '-1')
          GROUP BY SongLabel,
                   CASE WHEN restoration_songs.SongID IS NULL THEN 'N'
                        ELSE 'Y'
@@ -45,58 +87,23 @@ song.count.info = list(
          ORDER BY COUNT(DISTINCT CongregationID) DESC,
                   COUNT(DISTINCT CONCAT(WorshipDate, CongregationID)) DESC,
                   SongLabel",
-  hidden.columns = c(3)
+  hidden.columns = c(3),
+  input.dependencies = c("song.count.time")
 )
 
 song.count.table = tabPanel(
   "Table of counts by song",
+  uiOutput("song.count.time"),
   DTOutput("song.counts")
-)
-
-#### Counts by date ####
-
-date.count.info = list(
-  type = "graph",
-  sql = "SELECT WorshipDate,
-                COUNT(DISTINCT CongregationID) AS TotalCongregations,
-                COUNT(DISTINCT CONCAT(CongregationID, SongID)) AS TotalSongs
-         FROM och.worshiphistory
-         WHERE Processed
-         GROUP BY WorshipDate",
-  hidden.columns = c()
-)
-
-date.count.graph = tabPanel(
-  "Graph of counts by date",
-  plotOutput("date.counts", height = "1000px")
-)
-
-#### Map ####
-
-song.count.map.info = list(
-  type = "graph",
-  sql = "SELECT worshiphistory.CongregationID, Latitude, Longitude,
-                COUNT(DISTINCT CONCAT(WorshipDate)) AS TotalDates
-         FROM och.worshiphistory
-              JOIN och.congregations
-              ON worshiphistory.CongregationID = congregations.CongregationID
-         WHERE Processed
-         GROUP BY worshiphistory.CongregationID",
-  hidden.columns = c()
-)
-
-song.count.map = tabPanel(
-  "Map of counts by congregation",
-  plotOutput("song.counts.map", height = "600px")
 )
 
 #### Combined info ####
 
 summary.table.info = list(
   congregation.counts = congregation.count.info,
+  congregation.counts.map = congregation.count.map.info,
   song.counts = song.count.info,
-  date.counts = date.count.info,
-  song.counts.map = song.count.map.info
+  date.counts = date.count.info
 )
 
 #### Viewing page ####
@@ -104,9 +111,9 @@ summary.table.info = list(
 summary.page = tabPanel("Summary",
                         navlistPanel(
                           congregation.count.table,
+                          congregation.count.map,
                           date.count.graph,
                           song.count.table,
-                          song.count.map,
                           well = F,
                           widths = c(2, 10)
                         ))
@@ -114,11 +121,13 @@ summary.page = tabPanel("Summary",
 #### Useful functions ####
 
 # Populate the table
-populate.summary.table = function(summary.table, db.con) {
+populate.summary.table = function(summary.table, db.con, sql.variables) {
   if(!is.null(db.con)) {
     tryCatch(
       {
-        return(dbGetQuery(db.con, summary.table.info[[summary.table]]$sql))
+        song.count.time = sql.variables$song.count.time
+        sql = glue_sql(summary.table.info[[summary.table]]$sql, .con = db.con)
+        return(dbGetQuery(db.con, sql))
       },
       error = function(err) {
         print(err)

@@ -300,7 +300,7 @@ server <- function(input, output, session) {
         date.part.1 = paste("([0-9]+|", month.abbrs, ")", sep = "")
         date.part.2 = paste("([0-9]+|", month.abbrs, ")", sep = "")
         date.part.3 = "[0-9]+"
-        date.regex = paste(date.part.1, "[-_ ]*", date.part.2, "[-_ ,]*",
+        date.regex = paste(date.part.1, "[-_ ]*", date.part.2, "[-_ ,.]*",
                            date.part.3, sep = "")
         file.worship.date = regmatches(tolower(trimmed.filename),
                                        regexpr(date.regex,
@@ -514,12 +514,13 @@ server <- function(input, output, session) {
       save.worship.history.table(worship.history.processing,
                                  input$process.wh.congregation.id,
                                  input$process.wh.date, label.tables, och.con())
-      for(sn in c("process.wh.congregation.id", "process.wh.date")) {
+      for(sn in c("process.wh.congregation.id", "process.wh.date",
+                  "song.count.time")) {
         selector.refresh[[sn]] = T
       }
       worship.history.processing$refresh = T
       for(st in c("song.counts", "congregation.counts", "date.counts",
-                  "song.counts.map")) {
+                  "congregation.counts.map")) {
         summary.refresh[[st]] = T
       }
     })
@@ -529,9 +530,18 @@ server <- function(input, output, session) {
       names(summary.table.info),
       function(st) {
         observeEvent(summary.refresh[[st]], {
-          summary.tables[[st]] = populate.summary.table(st, och.con())
+          summary.tables[[st]] = populate.summary.table(st, och.con(),
+                                                        list(song.count.time = input$song.count.time))
           summary.refresh[[st]] = NULL
         })
+        walk(
+          summary.table.info[[st]]$input.dependencies,
+          function(id) {
+            observeEvent(input[[id]], {
+              summary.refresh[[st]] = T
+            })
+          }
+        )
         if(summary.table.info[[st]]$type == "table") {
           output[[st]] = renderDT({
             temp.dt = summary.tables[[st]] %>%
@@ -565,7 +575,7 @@ server <- function(input, output, session) {
                 expand_limits(y = 0)
             }
           })
-        } else if(st == "song.counts.map") {
+        } else if(st == "congregation.counts.map") {
           usmap = get_stamenmap(bbox = c(bottom = 24.5, top = 49.5,
                                          right = -66, left = -125),
                                 zoom = 4, maptype = "toner-background")
@@ -573,7 +583,7 @@ server <- function(input, output, session) {
             ggmap(usmap) +
               geom_point(data = summary.tables[[st]],
                          aes(x = Longitude, y = Latitude, size = TotalDates),
-                         color = "cornflowerblue", alpha = 0.5) +
+                         color = "green", alpha = 0.5, shape = 16) +
               theme(legend.position = "bottom")
           })
         }

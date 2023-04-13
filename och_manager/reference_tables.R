@@ -248,8 +248,9 @@ save.reference.table = function(reference.table, db.con,
     if(reference.table == "congregations") {
       changed.df = changed.df %>%
         dplyr::select(-c(Latitude, Longitude)) %>%
-        geocode(street = Street, city = City, state = State, lat = Latitude,
-                long = Longitude, limit = 1, method = "osm") %>%
+        tidygeocoder::geocode(street = Street, city = City, state = State,
+                              lat = Latitude, long = Longitude, limit = 1,
+                              method = "osm") %>%
         mutate(Latitude = round(Latitude, 4),
                Longitude = round(Longitude, 4))
     }
@@ -291,8 +292,9 @@ save.reference.table = function(reference.table, db.con,
       if(reference.table == "congregations") {
         new.df = new.df %>%
           dplyr::select(-c(Latitude, Longitude)) %>%
-          geocode(street = Street, city = City, state = State, lat = Latitude,
-                  long = Longitude, limit = 1, method = "osm") %>%
+          tidygeocoder::geocode(street = Street, city = City, state = State,
+                                lat = Latitude, long = Longitude, limit = 1,
+                                method = "osm") %>%
           mutate(Latitude = round(Latitude, 4),
                  Longitude = round(Longitude, 4))
       }

@@ -41,13 +41,29 @@ process.wh.date = list(
                          "process.wh.show.all.entered")
 )
 
+# Worship history time periods
+song.count.time = list(
+  type = "select",
+  label = "Choose year:",
+  sql = "SELECT -1 AS Year, 'All' AS SelectorDisplay
+         FROM dual
+         UNION ALL
+         SELECT Year, Year AS SelectorDisplay
+         FROM (SELECT DISTINCT YEAR(WorshipDate) AS Year
+               FROM och.worshiphistory
+               WHERE Processed
+               ORDER BY YEAR(WorshipDate)) years",
+  input.dependencies = c()
+)
+
 #### Combined info ####
 
 # List with everything
 selector.info = list(
   wh.file.congregation.id = wh.file.congregation.id,
   process.wh.congregation.id = process.wh.congregation.id,
-  process.wh.date = process.wh.date
+  process.wh.date = process.wh.date,
+  song.count.time = song.count.time
 )
 
 #### Useful functions ####
