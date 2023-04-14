@@ -48,7 +48,7 @@ upload.worship.history = tabPanel(
   uiOutput("wh.file.congregation.id"),
   selectizeInput("wh.file.type", label = "File type:",
                  choices = c("Spreadsheet", "Bulletin")),
-  fileInput("wh.file", label = "", multiple = F, width = "500px",
+  fileInput("wh.file", label = "", multiple = T, width = "500px",
             accept = c(".xls", ".xlsx", ".pdf"),
             buttonLabel = "Choose file..."),
   checkboxInput("wh.file.overwrite",

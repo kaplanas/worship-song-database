@@ -250,7 +250,7 @@ save.reference.table = function(reference.table, db.con,
         dplyr::select(-c(Latitude, Longitude)) %>%
         tidygeocoder::geocode(street = Street, city = City, state = State,
                               lat = Latitude, long = Longitude, limit = 1,
-                              method = "osm") %>%
+                              method = "census") %>%
         mutate(Latitude = round(Latitude, 4),
                Longitude = round(Longitude, 4))
     }
@@ -294,7 +294,7 @@ save.reference.table = function(reference.table, db.con,
           dplyr::select(-c(Latitude, Longitude)) %>%
           tidygeocoder::geocode(street = Street, city = City, state = State,
                                 lat = Latitude, long = Longitude, limit = 1,
-                                method = "osm") %>%
+                                method = "census") %>%
           mutate(Latitude = round(Latitude, 4),
                  Longitude = round(Longitude, 4))
       }
