@@ -318,22 +318,19 @@ server <- function(input, output, session) {
         pull(FolderName)
       filename = paste(filename, "/", filename, "_", filename.suffix, sep = "")
       
+      # Get previously entered dates
+      existing.dates.sql = "SELECT DISTINCT WorshipDate
+                              FROM och.worshiphistory
+                              WHERE CongregationID = {input$wh.file.congregation.id}"
+      existing.dates = ymd(dbGetQuery(och.con(),
+                                      glue_sql(existing.dates.sql,
+                                               .con = och.con()))$WorshipDate)
+      
       # Spreadsheets
       if(input$wh.file.type == "Spreadsheet") {
         
         # Add the correct suffix to the filenames
         filename = paste(filename, ".csv", sep = "")
-        
-        # If the user doesn't want to overwrite previously entered dates, get
-        # those dates
-        if(!input$wh.file.overwrite) {
-          existing.dates.sql = "SELECT DISTINCT WorshipDate
-                                FROM och.worshiphistory
-                                WHERE CongregationID = {input$wh.file.congregation.id}"
-          existing.dates = ymd(dbGetQuery(och.con(),
-                                          glue_sql(existing.dates.sql,
-                                                   .con = och.con()))$WorshipDate)
-        }
         
         # Iterate over files
         for(i in 1:nrow(input$wh.file)) {
@@ -380,98 +377,114 @@ server <- function(input, output, session) {
         # Iterate over files
         for(i in 1:nrow(input$wh.file)) {
           
-          # Write the pdf to S3
-          tryCatch(
-            {
-              put_object(file = input$wh.file[[i,"datapath"]],
-                         object = paste("observing_congregational_hymnody",
-                                        filename[i], sep = "/"),
-                         bucket = "worship-song-database")
-              showNotification(paste("pdf successfully saved:",
-                                     filename.suffix[i], sep = "\n"),
-                               type = "message")
-            },
-            error = function(err) {
-              print(err)
-              showNotification("pdf could not be saved", type = "error")
-            }
-          )
+          # Display a warning if we're skipping this file because it's a
+          # previously entered date
+          if(filename.suffix[i] %in% format(existing.dates, "%Y%m%d") &
+             !input$wh.file.overwrite) {
+            showNotification(paste("date already entered:", filename.suffix[i],
+                                   sep = "\n"), type = "warning")
+          }
           
-          # Attempt to extract text from the pdf
-          wh.text = pdf_text(input$wh.file[i,"datapath"])
-          wh.text = unlist(strsplit(wh.text, "\n"))
-          wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "", wh.text)
-          wh.text = wh.text[wh.text != ""]
-          
-          # If we didn't get any text, it's a scanned image and we have to use
-          # Textract
-          if(length(wh.text) == 0) {
-            textract = textract()
-            resp = textract$start_document_text_detection(
-              DocumentLocation = list(
-                S3Object = list(Bucket = "worship-song-database",
-                                Name = paste("observing_congregational_hymnody",
-                                             filename[i], sep = "/"))
-              )
+          # Otherwise, proceed as normal
+          else {
+            
+            # Write the pdf to S3
+            tryCatch(
+              {
+                put_object(file = input$wh.file[[i,"datapath"]],
+                           object = paste("observing_congregational_hymnody",
+                                          filename[i], sep = "/"),
+                           bucket = "worship-song-database")
+                showNotification(paste("pdf successfully saved:",
+                                       filename.suffix[i], sep = "\n"),
+                                 type = "message")
+              },
+              error = function(err) {
+                print(err)
+                showNotification("pdf could not be saved", type = "error")
+              }
             )
-            count = 0
-            while(count <= 60 &&
-                  (!exists("result") || result$JobStatus == "IN_PROGRESS")) {
-              Sys.sleep(1)
-              result = textract$get_document_text_detection(JobId = resp$JobId)
-              count = count + 1
-            }
-            if(result$JobStatus == "SUCCEEDED") {
-              wh.text = c()
-              get.results = T
-              while(get.results) {
-                temp.wh.text =  purrr::map_chr(result$Blocks,
-                                               function(b) {
-                                                 line = b$Text
-                                                 if(length(line) == 0 |
-                                                    b$BlockType != "LINE") {
-                                                   line = ""
-                                                 }
-                                                 return(line)
-                                               })
-                temp.wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "",
-                                    temp.wh.text)
-                wh.text = c(wh.text, temp.wh.text[temp.wh.text != ""])
-                if(length(result$NextToken) == 0) {
-                  get.results = F
-                } else {
-                  result = textract$get_document_text_detection(JobId = resp$JobId,
-                                                                NextToken = result$NextToken)
+            
+            # Attempt to extract text from the pdf
+            wh.text = pdf_text(input$wh.file[i,"datapath"])
+            wh.text = unlist(strsplit(wh.text, "\n"))
+            wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "", wh.text)
+            wh.text = wh.text[wh.text != ""]
+            
+            # If we didn't get any text, it's a scanned image and we have to use
+            # Textract
+            if(length(wh.text) == 0) {
+              if(exists("result")) {
+                rm(result)
+              }
+              textract = textract()
+              resp = textract$start_document_text_detection(
+                DocumentLocation = list(
+                  S3Object = list(Bucket = "worship-song-database",
+                                  Name = paste("observing_congregational_hymnody",
+                                               filename[i], sep = "/"))
+                )
+              )
+              count = 0
+              while(count <= 60 &&
+                    (!exists("result") || result$JobStatus == "IN_PROGRESS")) {
+                Sys.sleep(1)
+                result = textract$get_document_text_detection(JobId = resp$JobId)
+                count = count + 1
+              }
+              if(result$JobStatus == "SUCCEEDED") {
+                wh.text = c()
+                get.results = T
+                while(get.results) {
+                  temp.wh.text =  purrr::map_chr(result$Blocks,
+                                                 function(b) {
+                                                   line = b$Text
+                                                   if(length(line) == 0 |
+                                                      b$BlockType != "LINE") {
+                                                     line = ""
+                                                   }
+                                                   return(line)
+                                                 })
+                  temp.wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "",
+                                      temp.wh.text)
+                  wh.text = c(wh.text, temp.wh.text[temp.wh.text != ""])
+                  if(length(result$NextToken) == 0) {
+                    get.results = F
+                  } else {
+                    result = textract$get_document_text_detection(JobId = resp$JobId,
+                                                                  NextToken = result$NextToken)
+                  }
                 }
               }
             }
-          }
-          
-          # Create a dataframe
-          wh.df = data.frame(WorshipDate = rep(strftime(file.worship.date[i],
-                                                        "%Y-%m-%d"),
-                                               length(wh.text)),
-                             RawLine = wh.text)
-          
-          # Write the dataframe to S3 as a csv
-          tryCatch(
-            {
-              if(nrow(wh.df) > 0) {
-                s3write_using(wh.df, FUN = write.csv,
-                              object = paste("observing_congregational_hymnody",
-                                             gsub("pdf$", "csv", filename[i]),
-                                             sep = "/"),
-                              row.names = F, bucket = "worship-song-database")
-                showNotification("csv successfully saved", type = "message")
-              } else {
+            
+            # Create a dataframe
+            wh.df = data.frame(WorshipDate = rep(strftime(file.worship.date[i],
+                                                          "%Y-%m-%d"),
+                                                 length(wh.text)),
+                               RawLine = wh.text)
+            
+            # Write the dataframe to S3 as a csv
+            tryCatch(
+              {
+                if(nrow(wh.df) > 0) {
+                  s3write_using(wh.df, FUN = write.csv,
+                                object = paste("observing_congregational_hymnody",
+                                               gsub("pdf$", "csv", filename[i]),
+                                               sep = "/"),
+                                row.names = F, bucket = "worship-song-database")
+                  showNotification("csv successfully saved", type = "message")
+                } else {
+                  showNotification("csv could not be saved", type = "error")
+                }
+              },
+              error = function(err) {
+                print(err)
                 showNotification("csv could not be saved", type = "error")
               }
-            },
-            error = function(err) {
-              print(err)
-              showNotification("csv could not be saved", type = "error")
-            }
-          )
+            )
+            
+          }
           
           Sys.sleep(1)
           
