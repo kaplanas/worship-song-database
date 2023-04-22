@@ -23,6 +23,29 @@ congregation.count.table = tabPanel(
   DTOutput("congregation.counts")
 )
 
+#### Counts by congregation and year ####
+
+congregation.year.count.info = list(
+  type = "table",
+  sql = "SELECT CongregationLabel, YEAR(WorshipDate) AS Year,
+                CONCAT(COUNT(DISTINCT CASE WHEN Processed THEN WorshipDate
+                                           ELSE NULL
+                                      END),
+                       ' / ',
+                       COUNT(DISTINCT WorshipDate)) AS TotalDatesUploadedProcessed
+         FROM och.worshiphistory
+              JOIN och.congregation_labels
+              ON worshiphistory.CongregationID = congregation_labels.CongregationID
+         GROUP BY CongregationLabel, YEAR(WorshipDate)",
+  hidden.columns = c(),
+  input.dependencies = c()
+)
+
+congregation.year.count.table = tabPanel(
+  "Table of counts by congregation and year",
+  DTOutput("congregation.year.counts")
+)
+
 #### Map ####
 
 congregation.count.map.info = list(
@@ -101,6 +124,7 @@ song.count.table = tabPanel(
 
 summary.table.info = list(
   congregation.counts = congregation.count.info,
+  congregation.year.counts = congregation.year.count.info,
   congregation.counts.map = congregation.count.map.info,
   song.counts = song.count.info,
   date.counts = date.count.info
@@ -111,6 +135,7 @@ summary.table.info = list(
 summary.page = tabPanel("Summary",
                         navlistPanel(
                           congregation.count.table,
+                          congregation.year.count.table,
                           congregation.count.map,
                           date.count.graph,
                           song.count.table,
@@ -127,7 +152,13 @@ populate.summary.table = function(summary.table, db.con, sql.variables) {
       {
         song.count.time = sql.variables$song.count.time
         sql = glue_sql(summary.table.info[[summary.table]]$sql, .con = db.con)
-        return(dbGetQuery(db.con, sql))
+        df = dbGetQuery(db.con, sql)
+        if(summary.table == "congregation.year.counts") {
+          df = df %>%
+            pivot_wider(names_from = "Year", names_sort = T,
+                        values_from = "TotalDatesUploadedProcessed")
+        }
+        return(df)
       },
       error = function(err) {
         print(err)
