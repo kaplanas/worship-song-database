@@ -12,6 +12,8 @@ congregation.count.info = list(
               JOIN och.congregation_labels
               ON worshiphistory.CongregationID = congregation_labels.CongregationID
          WHERE Processed
+               AND (congregation_labels.UseData
+                    OR CURRENT_USER() LIKE 'abby_kaplan%')
          GROUP BY CongregationLabel
          ORDER BY CongregationLabel",
   hidden.columns = c(),
@@ -36,6 +38,8 @@ congregation.year.count.info = list(
          FROM och.worshiphistory
               JOIN och.congregation_labels
               ON worshiphistory.CongregationID = congregation_labels.CongregationID
+         WHERE congregation_labels.UseData
+               OR CURRENT_USER() LIKE 'abby_kaplan%'
          GROUP BY CongregationLabel, YEAR(WorshipDate)",
   hidden.columns = c(),
   input.dependencies = c()
@@ -56,6 +60,8 @@ congregation.count.map.info = list(
               JOIN och.congregations
               ON worshiphistory.CongregationID = congregations.CongregationID
          WHERE Processed
+               AND (congregations.UseData
+                    OR CURRENT_USER() LIKE 'abby_kaplan%')
          GROUP BY worshiphistory.CongregationID",
   hidden.columns = c(),
   input.dependencies = c()
@@ -71,10 +77,14 @@ congregation.count.map = tabPanel(
 date.count.info = list(
   type = "graph",
   sql = "SELECT WorshipDate,
-                COUNT(DISTINCT CongregationID) AS TotalCongregations,
-                COUNT(DISTINCT CONCAT(CongregationID, SongID)) AS TotalSongs
+                COUNT(DISTINCT worshiphistory.CongregationID) AS TotalCongregations,
+                COUNT(DISTINCT CONCAT(worshiphistory.CongregationID, SongID)) AS TotalSongs
          FROM och.worshiphistory
+              JOIN och.congregations
+              ON worshiphistory.CongregationID = congregations.CongregationID
          WHERE Processed
+               AND (congregations.UseData
+                    OR CURRENT_USER() LIKE 'abby_kaplan%')
          GROUP BY WorshipDate",
   hidden.columns = c(),
   input.dependencies = c()
@@ -90,8 +100,8 @@ date.count.graph = tabPanel(
 song.count.info = list(
   type = "table",
   sql = "SELECT SongLabel,
-                COUNT(DISTINCT CONCAT(WorshipDate, CongregationID)) AS TotalSingings,
-                COUNT(DISTINCT CongregationID) AS TotalCongregations,
+                COUNT(DISTINCT CONCAT(WorshipDate, worshiphistory.CongregationID)) AS TotalSingings,
+                COUNT(DISTINCT worshiphistory.CongregationID) AS TotalCongregations,
                 CASE WHEN restoration_songs.SongID IS NULL THEN 'N'
                      ELSE 'Y'
                 END AS Restoration
@@ -100,15 +110,19 @@ song.count.info = list(
               ON worshiphistory.SongID = song_labels.SongID
               LEFT JOIN och.restoration_songs
               ON worshiphistory.SongID = restoration_songs.SongID
+              JOIN och.congregations
+              ON worshiphistory.CongregationID = congregations.CongregationID
          WHERE Processed
                AND (YEAR(WorshipDate) = {song.count.time}
                     OR {song.count.time} = '-1')
+               AND (congregations.UseData
+                    OR CURRENT_USER() LIKE 'abby_kaplan%')
          GROUP BY SongLabel,
                   CASE WHEN restoration_songs.SongID IS NULL THEN 'N'
                        ELSE 'Y'
                   END
-         ORDER BY COUNT(DISTINCT CongregationID) DESC,
-                  COUNT(DISTINCT CONCAT(WorshipDate, CongregationID)) DESC,
+         ORDER BY COUNT(DISTINCT worshiphistory.CongregationID) DESC,
+                  COUNT(DISTINCT CONCAT(WorshipDate, worshiphistory.CongregationID)) DESC,
                   SongLabel",
   hidden.columns = c(3),
   input.dependencies = c("song.count.time")

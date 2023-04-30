@@ -7,6 +7,8 @@ wh.file.congregation.id = list(
   width = "500px",
   sql = "SELECT CongregationID, CongregationLabel AS SelectorDisplay
          FROM och.congregation_labels
+         WHERE UseData
+               OR CURRENT_USER() LIKE 'abby_kaplan%'
          ORDER BY CongregationLabel",
   input.dependencies = c()
 )
@@ -23,8 +25,10 @@ process.wh.congregation.id = list(
                          FROM och.worshiphistory
                          WHERE NOT Processed) not_processed
               ON congregation_labels.CongregationID = not_processed.CongregationID
-         WHERE not_processed.CongregationID IS NOT NULL
-               OR {show.all.entered}
+         WHERE (not_processed.CongregationID IS NOT NULL
+                OR {show.all.entered})
+               AND (congregation_labels.UseData
+                    OR CURRENT_USER() LIKE 'abby_kaplan%')
          ORDER BY congregation_labels.CongregationLabel",
   input.dependencies = c("process.wh.show.all.entered")
 )

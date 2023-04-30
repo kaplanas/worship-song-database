@@ -4,7 +4,8 @@ SELECT CongregationID,
        CONCAT(CongregationName,
 			  CASE WHEN City IS NULL OR State IS NULL THEN ''
                    ELSE CONCAT(' (', City, ', ', State, ')')
-			  END) AS CongregationLabel
+			  END) AS CongregationLabel,
+	   UseData
 FROM och.congregations
 ORDER BY CongregationName, State, City;
 
