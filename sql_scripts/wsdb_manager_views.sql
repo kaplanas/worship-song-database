@@ -277,3 +277,31 @@ FROM wsdb.songs
 	 ON songs.SongID = song_lyrics.SongID
         AND song_lyrics.ROWNUM = 1
 ORDER BY songs.SongName, songs.SongDisambiguator;
+
+-- Year of each song.
+CREATE OR REPLACE VIEW wsdb.song_year AS
+WITH lyrics_year AS
+     (SELECT SongID, MAX(CopyrightYear) AS LyricsYear
+	  FROM wsdb.songinstances
+		   JOIN wsdb.songinstances_lyrics
+           ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+           JOIN wsdb.lyrics
+           ON songinstances_lyrics.LyricsID = lyrics.LyricsID
+		   LEFT JOIN wsdb.lyrics_translations
+           ON lyrics.LyricsID = lyrics_translations.LyricsID
+	  WHERE lyrics_translations.LyricsID IS NULL
+	  GROUP BY SongID),
+	 tune_year AS
+     (SELECT SongID, MAX(CopyrightYear) AS TuneYear
+      FROM wsdb.songinstances
+		   JOIN wsdb.songinstances_tunes
+           ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
+           JOIN wsdb.tunes
+           ON songinstances_tunes.TuneID = tunes.TuneID
+	  GROUP BY SongID)
+SELECT songs.SongID, GREATEST(LyricsYear, TuneYear) AS Year
+FROM wsdb.songs
+     LEFT JOIN lyrics_year
+     ON songs.SongID = lyrics_year.SongID
+     LEFT JOIN tune_year
+     ON songs.SongID = tune_year.SongID;
