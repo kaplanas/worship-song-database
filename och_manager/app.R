@@ -407,7 +407,7 @@ server <- function(input, output, session) {
             
             # Attempt to extract text from the pdf
             wh.text = pdf_text(input$wh.file[i,"datapath"])
-            wh.text = unlist(strsplit(wh.text, "\n"))
+            wh.text = unlist(strsplit(wh.text, "\n|     +"))
             wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "", wh.text)
             wh.text = wh.text[wh.text != ""]
             
