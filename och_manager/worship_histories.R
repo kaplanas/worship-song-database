@@ -128,7 +128,7 @@ create.worship.history.hot = function(df, reactive.label.tables, window.width,
       temp.df = temp.df %>% add_row()
     }
     temp.hot = rhandsontable(temp.df, width = window.width * 0.8,
-                             height = window.height * 0.6, rowHeaders = NULL,
+                             height = window.height * 0.7, rowHeaders = NULL,
                              overflow = "visible", selectCallback = T) %>%
       hot_context_menu(allowColEdit = F) %>%
       hot_cols(colWidths = process.worship.history.info$columns$width[process.worship.history.info$columns$displayed],
