@@ -17,7 +17,7 @@ wh.file.congregation.id = list(
 process.wh.congregation.id = list(
   type = "select",
   label = "Choose congregation:",
-  width = NULL,
+  width = "500px",
   sql = "SELECT congregation_labels.CongregationID,
                 congregation_labels.CongregationLabel AS SelectorDisplay
          FROM och.congregation_labels

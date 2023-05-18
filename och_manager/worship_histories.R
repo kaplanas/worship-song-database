@@ -69,11 +69,11 @@ process.worship.history = tabPanel(
       )
     ),
     column(
-      4,
+      5,
       uiOutput("process.wh.congregation.id")
     ),
     column(
-      3,
+      2,
       checkboxInput("process.wh.show.all.entered", "Show all entered dates")
     ),
     column(
