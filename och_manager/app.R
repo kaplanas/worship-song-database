@@ -302,7 +302,7 @@ server <- function(input, output, session) {
         date.part.1 = paste("([0-9]+|", month.abbrs, ")", sep = "")
         date.part.2 = paste("([0-9]+|", month.abbrs, ")", sep = "")
         date.part.3 = "[0-9]+"
-        date.regex = paste(date.part.1, "[-_ ]*", date.part.2, "[-_ ,.]*",
+        date.regex = paste(date.part.1, "[-_ .]*", date.part.2, "[-_ ,.]*",
                            date.part.3, sep = "")
         file.worship.date = regmatches(tolower(trimmed.filename),
                                        regexpr(date.regex,
@@ -536,7 +536,7 @@ server <- function(input, output, session) {
                                  input$process.worship.history_select$select$r)
     })
 
-    # When the user makes a change to the songbook processing table, update the
+    # When the user makes a change to the processing table, update the
     # underlying table accordingly
     observeEvent(input$process.worship.history, {
       update.worship.history.hot(input$process.worship.history$changes,
