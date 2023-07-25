@@ -50,6 +50,42 @@ congregation.year.count.table = tabPanel(
   DTOutput("congregation.year.counts")
 )
 
+#### Dates by congregation and year ####
+
+congregation.year.date.info = list(
+  type = "table",
+  sql = "SELECT WorshipDate,
+                CASE WHEN DAYOFWEEK(WorshipDate) = 1 THEN 'Y'
+                     ELSE 'N'
+                END AS Sunday,
+                SUM(CASE WHEN AmbiguousSong <> '' THEN 0
+                         WHEN Processed THEN 1
+                         ELSE 0
+                    END) AS ProcessedRows,
+                SUM(CASE WHEN AmbiguousSong <> '' THEN 1
+                         ELSE 0
+                    END) AS AmbiguousRows,
+                SUM(CASE WHEN Processed THEN 0
+                         ELSE 1
+                    END) AS UnprocessedRows
+         FROM och.worshiphistory
+         WHERE CongregationID = {year.date.congregation}
+               AND YEAR(WorshipDate) = {year.date.year}
+         GROUP BY WorshipDate
+         ORDER BY WorshipDate",
+  hidden.columns = c(1),
+  input.dependencies = c("year.date.congregation", "year.date.year")
+)
+
+congregation.year.date.table = tabPanel(
+  "List of dates by congregation and year",
+  fluidRow(
+    column(6, uiOutput("year.date.congregation")),
+    column(6, uiOutput("year.date.year"))
+  ),
+  DTOutput("congregation.year.dates")
+)
+
 #### Map ####
 
 congregation.count.map.info = list(
@@ -139,6 +175,7 @@ song.count.table = tabPanel(
 summary.table.info = list(
   congregation.counts = congregation.count.info,
   congregation.year.counts = congregation.year.count.info,
+  congregation.year.dates = congregation.year.date.info,
   congregation.counts.map = congregation.count.map.info,
   song.counts = song.count.info,
   date.counts = date.count.info
@@ -150,6 +187,7 @@ summary.page = tabPanel("Summary",
                         navlistPanel(
                           congregation.count.table,
                           congregation.year.count.table,
+                          congregation.year.date.table,
                           congregation.count.map,
                           date.count.graph,
                           song.count.table,
@@ -165,6 +203,8 @@ populate.summary.table = function(summary.table, db.con, sql.variables) {
     tryCatch(
       {
         song.count.time = sql.variables$song.count.time
+        year.date.congregation = sql.variables$year.date.congregation
+        year.date.year = sql.variables$year.date.year
         sql = glue_sql(summary.table.info[[summary.table]]$sql, .con = db.con)
         df = dbGetQuery(db.con, sql)
         if(summary.table == "congregation.year.counts") {

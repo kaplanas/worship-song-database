@@ -555,8 +555,8 @@ server <- function(input, output, session) {
       }
       worship.history.processing$refresh = T
       for(st in c("song.counts", "congregation.counts",
-                  "congregation.year.counts", "date.counts",
-                  "congregation.counts.map")) {
+                  "congregation.year.counts", "congregation.year.dates",
+                  "date.counts", "congregation.counts.map")) {
         summary.refresh[[st]] = T
       }
     })
@@ -567,7 +567,9 @@ server <- function(input, output, session) {
       function(st) {
         observeEvent(summary.refresh[[st]], {
           summary.tables[[st]] = populate.summary.table(st, och.con(),
-                                                        list(song.count.time = input$song.count.time))
+                                                        list(song.count.time = input$song.count.time,
+                                                             year.date.congregation = input$year.date.congregation,
+                                                             year.date.year = input$year.date.year))
           summary.refresh[[st]] = NULL
         })
         walk(
@@ -585,9 +587,20 @@ server <- function(input, output, session) {
                             function(x) { gsub("\n", "<br/>", x )})) %>%
               datatable(options = list(searching = F, paging = F, info = F,
                                        columnDefs = list(list(visible = F,
-                                                              targets = summary.table.info[[st]]$hidden.columns))),
-                        rownames = F, escape = F)
-            if(st == "song.counts") {
+                                                              targets = summary.table.info[[st]]$hidden.columns)),
+                                       dom = "Bfrtip",
+                                       buttons = c("csv")),
+                        rownames = F, escape = F, extensions = "Buttons")
+            if(st == "congregation.year.dates") {
+              temp.dt = temp.dt %>%
+                formatStyle("AmbiguousRows", target = "cell",
+                            backgroundColor = styleInterval(0, c(NA, "yellow"))) %>%
+                formatStyle("UnprocessedRows", target = "cell",
+                            backgroundColor = styleInterval(0, c(NA, "red"))) %>%
+                formatStyle("WorshipDate", target = "cell",
+                            valueColumns = c("Sunday"),
+                            backgroundColor = styleEqual("N", "red"))
+            } else if(st == "song.counts") {
               temp.dt = temp.dt %>%
                 formatStyle("Restoration", target = "row",
                             backgroundColor = styleEqual("Y", "yellow"))

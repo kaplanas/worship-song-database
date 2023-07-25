@@ -45,6 +45,79 @@ process.wh.date = list(
                          "process.wh.show.all.entered")
 )
 
+# Congregations for upload summary
+year.date.congregation = list(
+  type = "select",
+  label = "Choose congregation:",
+  width = "500px",
+  sql = "SELECT CongregationID, CongregationLabel AS SelectorDisplay
+         FROM och.congregation_labels
+         WHERE UseData
+               OR CURRENT_USER() LIKE 'abby_kaplan%'
+         ORDER BY CongregationLabel",
+  input.dependencies = c()
+)
+
+# Years for upload summary
+year.date.year = list(
+  type = "select",
+  label = "Choose year:",
+  width = "500px",
+  sql = "SELECT YEAR(WorshipDate),
+                CONCAT(ProblemYear,
+                       CASE WHEN problems.NonSunday = 0
+                                 AND problems.Unprocessed = 0
+                                 AND problems.Ambiguous = 0
+                                 THEN ''
+                            ELSE ' ('
+                       END,
+                       CASE WHEN problems.NonSunday = 0 THEN ''
+                            ELSE CONCAT(problems.NonSunday, ' non-Sunday')
+                       END,
+                       CASE WHEN problems.NonSunday > 0
+                                 AND (problems.Unprocessed > 0
+                                      OR problems.Ambiguous > 0)
+                                 THEN ', '
+                            ELSE ''
+                       END,
+                       CASE WHEN problems.Unprocessed = 0 THEN ''
+                            ELSE CONCAT(problems.Unprocessed, ' unprocessed')
+                       END,
+                       CASE WHEN problems.Unprocessed > 0
+                                 AND problems.Ambiguous > 0
+                                 THEN ', '
+                            ELSE ''
+                       END,
+                       CASE WHEN problems.Ambiguous = 0 THEN ''
+                            ELSE CONCAT(problems.Ambiguous, ' ambiguous')
+                       END,
+                       CASE WHEN problems.NonSunday = 0
+                                 AND problems.Unprocessed = 0
+                                 AND problems.Ambiguous = 0
+                                 THEN ''
+                            ELSE ')'
+                       END) AS SelectorDisplay
+         FROM och.worshiphistory
+              JOIN (SELECT CongregationID, YEAR(WorshipDate) AS ProblemYear,
+                           SUM(CASE WHEN DAYOFWEEK(WorshipDate) <> 1 THEN 1
+                                    ELSE 0
+                               END) AS NonSunday,
+                           SUM(CASE WHEN AmbiguousSong <> '' THEN 1
+                                    ELSE 0
+                               END) AS Ambiguous,
+                           SUM(CASE WHEN NOT Processed THEN 1
+                                    ELSE 0
+                               END) AS Unprocessed
+                    FROM och.worshiphistory
+                    GROUP BY CongregationID, YEAR(WorshipDate)) problems
+              ON worshiphistory.CongregationID = problems.CongregationID
+                 AND YEAR(WorshipDate) = ProblemYear
+         WHERE worshiphistory.CongregationID = {year.date.congregation}
+         GROUP BY YEAR(WorshipDate), ProblemYear
+         ORDER BY YEAR(WorshipDate)",
+  input.dependencies = c("year.date.congregation")
+)
+
 # Worship history time periods
 song.count.time = list(
   type = "select",
@@ -67,6 +140,8 @@ selector.info = list(
   wh.file.congregation.id = wh.file.congregation.id,
   process.wh.congregation.id = process.wh.congregation.id,
   process.wh.date = process.wh.date,
+  year.date.congregation = year.date.congregation,
+  year.date.year = year.date.year,
   song.count.time = song.count.time
 )
 
@@ -80,6 +155,7 @@ update.selector.list = function(selector.name, db.con, sql.variables) {
     sql = selector.info[[selector.name]]$sql
     congregation.id = sql.variables$process.wh.congregation.id
     show.all.entered = sql.variables$process.wh.show.all.entered
+    year.date.congregation = sql.variables$year.date.congregation
     sql = glue_sql(sql, .con = db.con)
     sql = gsub("'(true|false)'", "\\1", sql)
     
