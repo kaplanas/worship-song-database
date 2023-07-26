@@ -589,8 +589,10 @@ server <- function(input, output, session) {
                                        columnDefs = list(list(visible = F,
                                                               targets = summary.table.info[[st]]$hidden.columns)),
                                        dom = "Bfrtip",
-                                       buttons = c("csv")),
-                        rownames = F, escape = F, extensions = "Buttons")
+                                       buttons = c("csv"),
+                                       fixedHeader = T),
+                        rownames = F, escape = F,
+                        extensions = c("Buttons", "FixedHeader"))
             if(st == "congregation.year.dates") {
               temp.dt = temp.dt %>%
                 formatStyle("AmbiguousRows", target = "cell",
