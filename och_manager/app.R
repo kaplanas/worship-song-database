@@ -627,16 +627,28 @@ server <- function(input, output, session) {
             }
           })
         } else if(st == "congregation.counts.map") {
-          usmap = get_stamenmap(bbox = c(bottom = 24.5, top = 49.5,
-                                         right = -66, left = -125),
-                                zoom = 4, maptype = "toner-background")
-          output[[st]] = renderPlot({
-            ggmap(usmap) +
-              geom_point(data = summary.tables[[st]],
-                         aes(x = Longitude, y = Latitude, size = TotalDates),
-                         color = "green", alpha = 0.5, shape = 16) +
-              theme(legend.position = "bottom")
-          })
+          tryCatch(
+            {
+              usmap = get_stamenmap(bbox = c(bottom = 24.5, top = 49.5,
+                                             right = -66, left = -125),
+                                    zoom = 4, maptype = "toner-backgroundx")
+              output[[st]] = renderPlot({
+                ggmap(usmap) +
+                  geom_point(data = summary.tables[[st]],
+                             aes(x = Longitude, y = Latitude, size = TotalDates),
+                             color = "green", alpha = 0.5, shape = 16) +
+                  theme(legend.position = "bottom")
+              })
+            },
+            error = function(e) {
+              output[[st]] = renderPlot({
+                ggplot(data.frame(x = 1, y = 1, text = "Error in loading map"),
+                       aes(x = x, y = y, label = text)) +
+                  geom_text() +
+                  theme_void()
+              })
+            }
+          )
         }
       }
     )
