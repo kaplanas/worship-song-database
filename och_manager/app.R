@@ -631,7 +631,7 @@ server <- function(input, output, session) {
             {
               usmap = get_stamenmap(bbox = c(bottom = 24.5, top = 49.5,
                                              right = -66, left = -125),
-                                    zoom = 4, maptype = "toner-backgroundx")
+                                    zoom = 4, maptype = "toner-background")
               output[[st]] = renderPlot({
                 ggmap(usmap) +
                   geom_point(data = summary.tables[[st]],
