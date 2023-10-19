@@ -301,7 +301,7 @@ server <- function(input, output, session) {
                 current.selection = input[[col.info$element.id]]
                 updateSelectizeInput(session, col.info$element.id,
                                      choices = selector.list,
-                                     selected = current.selection)
+                                     selected = current.selection, server = T)
               })
             } else if(!col.info$editable) {
               output[[col.info$element.id]] = renderUI({

@@ -111,7 +111,7 @@ update.selector = function(selector.name, db.con, session, current.selection) {
           selected.item = character(0)
         }
         updateSelectizeInput(session, selector.name, choices = selector.list,
-                             selected = selected.item)
+                             selected = selected.item, server = T)
       }
     )
   }
