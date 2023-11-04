@@ -629,9 +629,13 @@ server <- function(input, output, session) {
         } else if(st == "congregation.counts.map") {
           tryCatch(
             {
-              usmap = get_stamenmap(bbox = c(bottom = 24.5, top = 49.5,
+              if(file.exists("~/.Renviron")) {
+                source("~/.Renviron")
+              }
+              usmap = get_stadiamap(bbox = c(bottom = 24.5, top = 49.5,
                                              right = -66, left = -125),
-                                    zoom = 4, maptype = "toner-background")
+                                    zoom = 4,
+                                    maptype = "stamen_toner_background")
               output[[st]] = renderPlot({
                 ggmap(usmap) +
                   geom_point(data = summary.tables[[st]],
