@@ -336,7 +336,7 @@ manage.key.signatures.info = list(
   fixed.cols = 4,
   sort = c("PitchID", "AccidentalID", "ModeID"),
   key = "KeySignatureID",
-  related.label.tables = c(),
+  related.label.tables = c("key.signature.labels"),
   related.selectors = c(),
   related.processing.table = T
 )
