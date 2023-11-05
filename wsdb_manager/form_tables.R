@@ -148,7 +148,8 @@ manage.song.instances.info = list(
   key = "SongInstanceID",
   related.label.tables = c("song.instance.labels"),
   related.selectors = c("manage.song.instances.id"),
-  related.processing.table = F
+  related.processing.table = F,
+  extra.delete.sql = "DELETE FROM wsdb.prettyscripturelists WHERE SongInstanceID = {SongInstanceID}"
 )
 
 #### Combined info ####
@@ -633,9 +634,38 @@ delete.form.table = function(form.table, manage.id, db.con) {
   # Info about this table
   form.info = form.table.info[[form.table]]
   
-  # Create SQL to delete the row
+  # Prepare info for SQL
   temp.df = data.frame(manage.id)
   colnames(temp.df) = form.table.info[[form.table]]$key
+  
+  # Create SQL to delete records from many-to-many tables
+  for(i in 1:nrow(form.info$columns)) {
+    col.info = form.info$columns[i,]
+    if(!is.na(col.info$multi.table)) {
+      if(manage.id != -1) {
+        id = manage.id
+        sql = data.frame(id)
+        colnames(sql) = form.info$key
+        sql = sql %>%
+          glue_data_sql(form.info$update.multi.sql[[col.info$column.name]]$delete,
+                        .con = db.con)
+        tryCatch(
+          {
+            dbGetQuery(db.con, sql)
+            show.changes.saved(T,
+                               db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                               sql))
+          },
+          error = function(err) {
+            print(err)
+            show.changes.saved(F, err.msg = err)
+          }
+        )
+      }
+    }
+  }
+  
+  # Create SQL to delete the row
   sql = temp.df %>%
     glue_data_sql(form.table.info[[form.table]]$delete.sql, .con = db.con)
   
