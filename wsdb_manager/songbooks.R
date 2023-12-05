@@ -162,7 +162,7 @@ save.songbook.table = function(reactive.songbook.processing,
     left_join(reactive.label.tables$song.instance.labels,
               by = "SongInstanceLabel") %>%
     mutate(SongbookID = process.songbook.id,
-           SongbookVolumeID = na_if(process.songbook.volume.id, -1)) %>%
+           SongbookVolumeID = na_if(process.songbook.volume.id, "-1")) %>%
     dplyr::select(SongbookEntryID, SongbookID, SongbookVolumeID, SongInstanceID,
                   EntryNumber)
   
@@ -224,7 +224,7 @@ save.songbook.table = function(reactive.songbook.processing,
     # Create sql to delete rows
     sql = glue_sql(process.songbook.info$delete.sql,
                    process.songbook.id = process.songbook.id,
-                   process.songbook.volume.id = na_if(process.songbook.volume.id, -1),
+                   process.songbook.volume.id = na_if(process.songbook.volume.id, "-1"),
                    keys = paste(temp.df$SongbookEntryID), .con = db.con)
     sql = gsub("= NULL", "IS NULL", sql)
     
