@@ -278,6 +278,61 @@ FROM wsdb.songs
         AND song_lyrics.ROWNUM = 1
 ORDER BY songs.SongName, songs.SongDisambiguator;
 
+-- Metrical psalm labels.  Psalm number plus lyrics first line.
+CREATE OR REPLACE VIEW wsdb.metricalpsalm_labels AS
+SELECT metricalpsalms.MetricalPsalmID,
+       CONCAT(PsalmNumber, ': ', FirstLine, ' (', Artists, ', ',
+              metricalpsalms.MetricalPsalmID, ')') AS MetricalPsalmLabel
+FROM wsdb.metricalpsalms
+     JOIN (SELECT MetricalPsalmID, MIN(LyricsID) AS LyricsID
+           FROM wsdb.metricalpsalms_lyrics
+           GROUP BY MetricalPsalmID) metricalpsalms_lyrics
+     ON metricalpsalms.MetricalPsalmID = metricalpsalms_lyrics.MetricalPsalmID
+     JOIN wsdb.lyrics
+     ON metricalpsalms_lyrics.LyricsID = lyrics.LyricsID
+     LEFT JOIN (SELECT lyrics_artists.LyricsID,
+                       GROUP_CONCAT(LastName SEPARATOR '/') AS Artists
+				FROM wsdb.lyrics_artists
+                     JOIN wsdb.artists
+                     ON lyrics_artists.ArtistID = artists.ArtistID
+				GROUP BY lyrics_artists.LyricsID) lyrics_artists
+	 ON lyrics.LyricsID = lyrics_artists.LyricsID;
+
+-- Tune labels.  Display name of canonical song.
+CREATE OR REPLACE VIEW wsdb.tune_song_labels AS
+SELECT tunes.TuneID,
+       CONCAT(CASE WHEN tunes.RealTuneName = 1
+                        THEN CONCAT(TuneName, ' (')
+                   ELSE ''
+              END,
+              COALESCE(tunes.CanonicalSongName,
+                       CONCAT(canonical_song.SongName,
+							  CASE WHEN canonical_song.SongDisambiguator IS NULL
+                                        THEN ''
+								   ELSE CONCAT(' ',
+                                               CASE WHEN tunes.RealTuneName = 1
+                                                         THEN '['
+													ELSE '('
+											   END,
+                                               canonical_song.SongDisambiguator,
+                                               CASE WHEN tunes.RealTuneName = 1
+														 THEN ']'
+													ELSE ')'
+											   END)
+							  END)),
+              CASE WHEN tunes.RealTuneName = 1
+                        THEN ')'
+                   ELSE ''
+              END) AS TuneLabel
+FROM wsdb.tunes
+     LEFT JOIN (SELECT TuneID, MAX(SongID) AS SongID
+                FROM wsdb.tunes_canonicalsongs
+                GROUP BY TuneID
+                HAVING COUNT(*) = 1) one_canonical_song
+     ON tunes.TuneID = one_canonical_song.TuneID
+     LEFT JOIN wsdb.songs canonical_song
+     ON one_canonical_song.SongID = canonical_song.SongID;
+
 -- Year of each song.
 CREATE OR REPLACE VIEW wsdb.song_year AS
 WITH lyrics_year AS

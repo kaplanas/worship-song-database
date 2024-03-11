@@ -13,6 +13,7 @@ tables.page = tabPanel("Manage tables",
                          form.table.info$tunes$tab.panel,
                          form.table.info$arrangements$tab.panel,
                          form.table.info$song.instances$tab.panel,
+                         form.table.info$metrical.psalms$tab.panel,
                          well = F,
                          widths = c(2, 10)
               ))

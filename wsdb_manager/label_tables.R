@@ -75,6 +75,27 @@ song.tempo.labels.sql = "SELECT SongTempoID, SongTempoLabel
 song.labels.sql = "SELECT SongID, SongLabel
                    FROM wsdb.song_labels"
 
+psalm.number.labels.sql = "WITH RECURSIVE psalmnumbers (PsalmNumber) AS
+                             (SELECT 1 AS PsalmNumber
+                              UNION
+                              SELECT PsalmNumber + 1
+                              FROM psalmnumbers
+                              WHERE PsalmNumber < 150)
+                           SELECT PsalmNumber, PsalmNumber AS PsalmNumberLabel
+                           FROM psalmnumbers"
+
+metrical.psalm.labels.sql = "SELECT MetricalPsalmID, MetricalPsalmLabel
+                             FROM wsdb.metricalpsalm_labels"
+
+psalm.song.labels.sql = "SELECT SongID, SongLabel
+                         FROM wsdb.song_labels
+                         WHERE SongID IN (SELECT SongID
+                                          FROM wsdb.psalmsongs)"
+
+tune.song.labels.sql = "SELECT TuneID, TuneLabel
+                        FROM wsdb.tune_song_labels
+                        ORDER BY TuneLabel"
+
 #### Combined info ####
 
 label.table.sql = list(
@@ -99,7 +120,11 @@ label.table.sql = list(
   song.type.labels = song.type.labels.sql,
   song.tempo.labels = song.tempo.labels.sql,
   song.labels = song.labels.sql,
-  arrangement.type.labels = arrangement.type.labels.sql
+  arrangement.type.labels = arrangement.type.labels.sql,
+  psalm.number.labels = psalm.number.labels.sql,
+  metrical.psalm.labels = metrical.psalm.labels.sql,
+  psalm.song.labels = psalm.song.labels.sql,
+  tune.song.labels = tune.song.labels.sql
 )
 
 #### Useful functions ####

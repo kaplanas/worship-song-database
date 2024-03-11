@@ -74,6 +74,7 @@ CREATE FUNCTION wsdb.compute_pretty_scripture_lists(the_id INTEGER,
 RETURNS VARCHAR(1000) DETERMINISTIC
 BEGIN
 	
+    DECLARE book_id INTEGER;
     DECLARE pretty_string VARCHAR(1000);
     DECLARE current_continuous_verses VARCHAR(100);
     DECLARE current_book VARCHAR(100);
@@ -85,18 +86,23 @@ BEGIN
     DECLARE last_verse INTEGER;
     DECLARE loop_done INTEGER;
     DECLARE curs CURSOR FOR
-        SELECT BookAbbreviation, Chapter, Verse
-        FROM (SELECT SongInstanceID AS TheID, LyricsID
+        SELECT DISTINCT booksofthebible.BookID, BookAbbreviation,
+               Chapter, Verse
+        FROM (SELECT SongInstanceID AS TheID, LyricsID,
+                     0 AS PsalmNumber
               FROM wsdb.songinstances_lyrics
               WHERE SongInstanceID = the_id
                     AND id_type = 1
               UNION ALL
-              SELECT MetricalPsalmID AS TheID, LyricsID
-              FROM wsdb.metricalpsalms_lyrics
-              WHERE MetricalPsalmID = the_id
+              SELECT metricalpsalms.MetricalPsalmID AS TheID, LyricsID,
+                     PsalmNumber
+              FROM wsdb.metricalpsalms
+                   JOIN wsdb.metricalpsalms_lyrics
+                   ON metricalpsalms.MetricalPsalmID = metricalpsalms_lyrics.MetricalPsalmID
+              WHERE metricalpsalms.MetricalPsalmID = the_id
                     AND id_type = 2
 			  UNION ALL
-              SELECT DISTINCT psalmsongs.SongID AS TheID, LyricsID
+              SELECT psalmsongs.SongID AS TheID, LyricsID, PsalmNumber
               FROM wsdb.psalmsongs
                    JOIN wsdb.songinstances
                    ON psalmsongs.SongID = songinstances.SongID
@@ -111,12 +117,14 @@ BEGIN
              JOIN wsdb.booksofthebible
              ON scripturereferences.BookID = booksofthebible.BookID
 		WHERE id_type = 1
-              OR booksofthebible.BookID = 19
+              OR (booksofthebible.BookID = 19
+                  AND Chapter = PsalmNumber)
         ORDER BY booksofthebible.BookID,
 				 scripturereferences.Chapter,
                  scripturereferences.Verse;
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET loop_done = true;
     
+    SET book_id = 0;
     SET pretty_string = '';
     SET current_continuous_verses = '';
     SET current_book = '';
@@ -134,7 +142,7 @@ BEGIN
         SET last_chapter = current_chapter;
         SET last_verse = current_verse;
         
-        FETCH curs INTO current_book, current_chapter, current_verse;
+        FETCH curs INTO book_id, current_book, current_chapter, current_verse;
         
         IF current_book = last_book
             AND current_chapter = last_chapter

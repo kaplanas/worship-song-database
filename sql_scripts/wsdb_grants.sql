@@ -49,5 +49,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON wsdb.tunes_artists TO 'worship_song_data
 GRANT SELECT, INSERT, UPDATE, DELETE ON wsdb.tunes_canonicalsongs TO 'worship_song_database';
 GRANT SELECT, INSERT, UPDATE, DELETE ON wsdb.tunes_copyrightholders TO 'worship_song_database';
 GRANT SELECT, INSERT, UPDATE, DELETE ON wsdb.tunes_meters TO 'worship_song_database';
+GRANT SELECT, INSERT, UPDATE, DELETE ON wsdb.alternativetunes TO 'worship_song_database';
 
 GRANT SELECT ON wsdb.* TO 'worship_song_database';

@@ -10,10 +10,20 @@ library(DT)
 
 #### Useful stuff ####
 
+# Render html in selectize
+selectize.html.render = '{item: function(item, escape) {
+                                  return "<div>" + item.label + "</div>";
+                                },
+                          option: function(item, escape) {
+                                    return "<div>" + item.label + "</div>";
+                                  }
+                          }'
+
 # Code in other files
 source("label_tables.R", local = T)
 source("selectors.R", local = T)
 source("tables.R", local = T)
+source("alternative_tunes.R", local = T)
 source("songbooks.R", local = T)
 source("summary.R", local = T)
 
@@ -58,6 +68,7 @@ ui <- navbarPage(
   page.title,
   login.page,
   tables.page,
+  alternative.tunes.page,
   songbooks.page,
   summary.page
 )
@@ -122,6 +133,25 @@ server <- function(input, output, session) {
                         dimnames = list(NULL,
                                         form.table.info[[form.table]]$columns$column.name)))
     })
+  )
+  
+  # Reactive alternative tune tables
+  alt.tables = do.call(
+    "reactiveValues",
+    lapply(alt.table.info, function(alt.table) { NULL })
+  )
+  alt.refresh = do.call(
+    "reactiveValues",
+    lapply(alt.table.info, function(alt.table) { T })
+  )
+  alt.changes = do.call(
+    "reactiveValues",
+    lapply(
+      alt.table.info,
+      function(alt.table) {
+        list(edit = c(), insert = F, delete = F)
+      }
+    )
   )
   
   # Reactive processing table
@@ -354,6 +384,72 @@ server <- function(input, output, session) {
           }
           if(form.table.info[[ft]]$related.processing.table) {
             songbook.processing$refresh = T
+          }
+        })
+        
+      }
+    )
+    
+    # Alternative tune tables
+    purrr::walk(
+      names(alt.table.info),
+      function(at) {
+        
+        # Populate tables (and refresh as needed)
+        observeEvent(
+          {
+            alt.refresh[[at]]
+            input$alt.by.song.id
+            input$alt.by.metrical.psalm.id
+            input$alt.by.tune.id
+          },
+          {
+            alt.tables[[at]] = populate.alternative.tunes.table(at, wsdb.con(),
+                                                                input$alt.by.song.id,
+                                                                input$alt.by.metrical.psalm.id,
+                                                                input$alt.by.tune.id)
+            alt.refresh[[at]] = NULL
+          }
+        )
+        
+        # Render as handsontable
+        output[[at]] = renderRHandsontable({
+          create.alternative.tunes.hot(alt.tables[[at]], at, label.tables,
+                                       input$dimension[1], input$dimension[2])
+        })
+        
+        # When the user makes an update through the UI, propagate the changes to
+        # the table
+        observeEvent(input[[at]]$change, {
+          update.alternative.tunes.hot(at, input[[at]]$change, alt.tables,
+                                       alt.changes)
+        })
+        
+        # When the user request suggestions, retrieve them and add them to the
+        # table
+        observeEvent(input[[paste("suggest", at, sep = ".")]], {
+          alt.tables[[at]] = bind_rows(
+            alt.tables[[at]],
+            suggest.alternative.tunes(at, wsdb.con(), input$alt.by.song.id,
+                                      input$alt.by.metrical.psalm.id,
+                                      input$alt.by.tune.id)
+          )
+          alt.changes[[at]]$insert = T
+        })
+        
+        # When the user clicks the "Save" button, attempt to write the table to
+        # the database and update related tables/selectors
+        observeEvent(input[[paste("save", at, sep = ".")]], {
+          need.to.refresh = F
+          if(alt.changes[[at]]$insert) {
+            need.to.refresh = T
+          }
+          save.alternative.tunes.table(at, wsdb.con(), alt.tables, label.tables,
+                                       alt.changes, input$alt.by.song.id,
+                                       input$alt.by.metrical.psalm.id,
+                                       input$alt.by.tune.id)
+          if(need.to.refresh) {
+            alt.refresh[[at]] = T
           }
         })
         
