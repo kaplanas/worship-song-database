@@ -50,24 +50,24 @@ manage.lyrics.info = list(
     column.name = c("LyricsID", "FirstLine", "RefrainFirstLine", "ArtistID",
                     "TranslatedFromID", "CopyrightHolderID", "CopyrightYear",
                     "LanguageID", "MeterID", "ScriptureReferenceID", "FileName",
-                    "Created", "Updated"),
+                    "Created", "Updated", "LyricsHTML"),
     form.label = c("Lyrics ID", "First line", "Refrain first line", "Artists",
                    "Translated from", "Copyright holders", "Year", "Language",
                    "Meters", "Scripture references", "File name",
-                   "Date created", "Date updated"),
+                   "Date created", "Date updated", "Full lyrics"),
     key.table = c(NA, NA, NA, "artist.labels", "lyrics.labels",
                   "copyright.holder.labels", NA, "language.labels",
-                  "meter.labels", "scripture.reference.labels", NA, NA, NA),
+                  "meter.labels", "scripture.reference.labels", NA, NA, NA, NA),
     key.label = c(NA, NA, NA, "ArtistLabel", "LyricsLabel",
                   "CopyrightHolderLabel", NA, "LanguageLabel", "MeterLabel",
-                  "ScriptureReferenceLabel", NA, NA, NA),
+                  "ScriptureReferenceLabel", NA, NA, NA, NA),
     multi.table = c(NA, NA, NA, "wsdb.lyrics_artists",
                     "wsdb.lyrics_translations", "wsdb.lyrics_copyrightholders",
                     NA, NA, "wsdb.lyrics_meters",
-                    "wsdb.lyrics_scripturereferences", NA, NA, NA),
+                    "wsdb.lyrics_scripturereferences", NA, NA, NA, NA),
     type = c("numeric", "text", "text", "text", "text", "text", "numeric",
-             "text", "text", "text", "text", "date", "date"),
-    editable = c(F, T, T, T, T, T, T, T, T, T, T, F, F),
+             "text", "text", "text", "file", "date", "date", "html"),
+    editable = c(F, T, T, T, T, T, T, T, T, T, F, F, F, F),
     stringsAsFactors = F
   ),
   sort = c("FirstLine", "RefrainFirstLine"),
@@ -280,7 +280,7 @@ for(form.table in names(form.table.info)) {
 
   # Create UPDATE statement for base table
   sql = form.info$columns %>%
-    filter(editable, is.na(multi.table)) %>%
+    filter(editable | type == "file", is.na(multi.table)) %>%
     mutate(update = paste(column.name, " = {", column.name, "}", sep = "")) %>%
     pull(update) %>%
     paste(collapse = ", ") %>%
@@ -324,12 +324,12 @@ for(form.table in names(form.table.info)) {
   sql = paste(
     "INSERT INTO ", form.info$table, "(",
     form.info$columns %>%
-      filter(editable, is.na(multi.table)) %>%
+      filter(editable | type == "file", is.na(multi.table)) %>%
       pull(column.name) %>%
       paste(collapse = ", "),
     ") VALUES (",
     form.info$columns %>%
-      filter(editable, is.na(multi.table)) %>%
+      filter(editable | type == "file", is.na(multi.table)) %>%
       mutate(column.name = paste("{", column.name, "}", sep = "")) %>%
       pull(column.name) %>%
       paste(collapse = ", "),
@@ -344,6 +344,7 @@ for(form.table in names(form.table.info)) {
                                               form.info$select.label,
                                               choices = list(),
                                               selected = character(0),
+                                              width = "100%",
                                               options = list(maxOptions = 100000,
                                                              render = I(selectize.html.render)))
   element.id = paste("save", form.table, sep = ".")
@@ -373,6 +374,10 @@ for(form.table in names(form.table.info)) {
                                                   render = I(selectize.html.render)))
     }
     element.list[[col.info$element.id]] = new.element
+    if(col.info$type == "file") {
+      element.list[["lyrics.new.file"]] = fileInput("lyrics.new.file", "",
+                                                    accept = ".xml")
+    }
   }
   form.table.info[[form.table]]$form.elements = element.list
 
@@ -423,7 +428,11 @@ form.table.info$lyrics$tab.panel = tabPanel(
   fluidRow(
     column(4, form.table.info$lyrics$form.elements$lyrics.FirstLine),
     column(4, form.table.info$lyrics$form.elements$lyrics.RefrainFirstLine),
-    column(4, form.table.info$lyrics$form.elements$lyrics.FileName)
+    column(4,
+           fluidRow(
+             form.table.info$lyrics$form.elements$lyrics.FileName,
+             form.table.info$lyrics$form.elements$lyrics.new.file
+           ))
   ),
   fluidRow(
     column(5, form.table.info$lyrics$form.elements$lyrics.ArtistID),
@@ -437,7 +446,8 @@ form.table.info$lyrics$tab.panel = tabPanel(
   fluidRow(
     column(6, form.table.info$lyrics$form.elements$lyrics.MeterID),
     column(6, form.table.info$lyrics$form.elements$lyrics.ScriptureReferenceID)
-  )
+  ),
+  fluidRow(column(12, form.table.info$lyrics$form.elements$lyrics.LyricsHTML))
 )
 
 # Tunes
@@ -636,7 +646,7 @@ save.form.table = function(form.table, changes, manage.id, db.con,
   id = manage.id
   
   # Convert input fields into a dataframe
-  temp.df = data.frame(changes[form.info$columns$column.name[is.na(form.info$columns$multi.table) & form.info$columns$editable]])
+  temp.df = data.frame(changes[form.info$columns$column.name[is.na(form.info$columns$multi.table) & (form.info$columns$editable | form.info$columns$type == "file")]])
   temp.df[[form.info$key]] = id
   
   # If this is a new record, create SQL to insert into the base table
@@ -697,12 +707,9 @@ save.form.table = function(form.table, changes, manage.id, db.con,
       if(manage.id != -1) {
         sql = data.frame(id)
         colnames(sql) = form.info$key
-        print(form.info$update.multi.sql[[col.info$column.name]]$delete)
-        print(sql)
         sql = sql %>%
           glue_data_sql(form.info$update.multi.sql[[col.info$column.name]]$delete,
                         .con = db.con)
-        print(sql)
         tryCatch(
           {
             dbGetQuery(db.con, sql)
@@ -722,13 +729,10 @@ save.form.table = function(form.table, changes, manage.id, db.con,
         sql = data.frame(changes[[col.info$column.name]])
         colnames(sql) = col.info$column.name
         sql[[form.info$key]] = id
-        print(form.info$update.multi.sql[[col.info$column.name]]$insert)
-        print(sql)
         sql = sql %>%
           glue_data_sql(form.info$update.multi.sql[[col.info$column.name]]$insert,
                         .con = db.con)
         for(s in sql) {
-          print(s)
           tryCatch(
             {
               dbGetQuery(db.con, s)
@@ -745,6 +749,23 @@ save.form.table = function(form.table, changes, manage.id, db.con,
       }
       
     }
+  }
+  
+  # If the user provided a lyrics file, save it to the database and to S3
+  if("FileContents" %in% names(changes)) {
+    lyrics.xml = changes$FileContents
+    lyrics.html = gsub("<lyrics>", paste("<lyrics id=\"", id, "\">", sep = ""),
+                       lyrics.xml)
+    lyrics.html = gsub("</lyrics>", "<XXX>", lyrics.html)
+    lyrics.html = gsub("<([a-z0-9]*)>", "<p class=\"lyrics-\\1\">",
+                       lyrics.html)
+    lyrics.html = gsub("</[a-z0-9]*>", "</p>", lyrics.html)
+    lyrics.html = gsub("<XXX>", "</lyrics>", lyrics.html)
+    lyrics.html = gsub("([^>])\\r", "\\1 <br/>", lyrics.html)
+    sql = "UPDATE wsdb.lyrics SET LyricsText = {lyrics.xml}, LyricsHTML = {lyrics.html} WHERE LyricsID = {id}"
+    dbGetQuery(db.con, glue_sql(sql, .con = db.con))
+    s3write_using(changes$FileContents, writeLines, bucket = "wsdb-lyrics-test",
+                  object = changes$FileName)
   }
   
 }

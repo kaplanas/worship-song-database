@@ -7,6 +7,8 @@ library(glue)
 library(aws.ec2metadata)
 library(rhandsontable)
 library(DT)
+library(aws.s3)
+library(readr)
 
 #### Useful stuff ####
 
@@ -70,7 +72,8 @@ ui <- navbarPage(
   tables.page,
   alternative.tunes.page,
   songbooks.page,
-  summary.page
+  summary.page,
+  useShinyjs()
 )
 
 #### Server ####
@@ -334,10 +337,17 @@ server <- function(input, output, session) {
                                      selected = current.selection, server = T)
               })
             } else if(!col.info$editable) {
-              output[[col.info$element.id]] = renderUI({
-                tags$div(tags$b(col.info$column.name), tags$br(),
-                         form.row[[ft]][[col.info$column.name]])
-              })
+              if(col.info$type == "html") {
+                output[[col.info$element.id]] = renderUI({
+                  tags$div(tags$b(col.info$form.label), tags$br(),
+                           HTML(form.row[[ft]][[col.info$column.name]]))
+                })
+              } else {
+                output[[col.info$element.id]] = renderUI({
+                  tags$div(tags$b(col.info$form.label), tags$br(),
+                           form.row[[ft]][[col.info$column.name]])
+                })
+              }
             }
           })
         }
@@ -350,6 +360,13 @@ server <- function(input, output, session) {
                       form.table.info[[ft]]$columns$column.name),
             function(eid) { input[[eid]] }
           )
+          if(ft == "lyrics") {
+            row.elements$FileName = NA
+            if(!is.null(input$lyrics.new.file)) {
+              row.elements$FileName = input$lyrics.new.file$name
+              row.elements$FileContents = read_file(input$lyrics.new.file$datapath)
+            }
+          }
           save.form.table(ft, row.elements,
                           input[[paste("manage", ft, "id", sep = ".")]],
                           wsdb.con(), label.tables, session)
@@ -367,6 +384,9 @@ server <- function(input, output, session) {
           }
           if(form.table.info[[ft]]$related.processing.table) {
             songbook.processing$refresh = T
+          }
+          if(ft == "lyrics") {
+            reset(id = "lyrics.new.file")
           }
         })
         
