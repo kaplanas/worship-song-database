@@ -604,3 +604,58 @@ BEGIN
 END; //
 
 DELIMITER ;
+
+-- A function that takes the XML representation of a set of lyrics and returns
+-- an HTML representation of the same lyrics.
+
+DROP FUNCTION IF EXISTS wsdb.lyrics_xml_to_html;
+
+DELIMITER //
+
+CREATE FUNCTION wsdb.lyrics_xml_to_html(XMLString LONGTEXT, LyricsID INTEGER)
+RETURNS LONGTEXT DETERMINISTIC
+BEGIN
+	
+    DECLARE html_string LONGTEXT;
+    
+    SET html_string = XMLString;
+    
+    SET html_string = REGEXP_REPLACE(html_string, '>(\r|\n)+', '>');
+    SET html_string = REGEXP_REPLACE(html_string, '<lyrics>',
+                                     CONCAT('<lyrics id="', LyricsID, '">'));
+    SET html_string = REGEXP_REPLACE(html_string, '</lyrics>', 'XXX');
+    SET html_string = REGEXP_REPLACE(html_string, '<([[:alnum:]]+)>',
+                                     '<p class="lyrics-$1">');
+    SET html_string = REGEXP_REPLACE(html_string, '</[[:alnum:]]+>', '</p>');
+    SET html_string = REGEXP_REPLACE(html_string, '<br/></p>', '</p>');
+    SET html_string = REGEXP_REPLACE(html_string, 'XXX', '</lyrics>');
+    SET html_string = REGEXP_REPLACE(html_string, '([[:alnum:][:punct:]])(\r|\n)+',
+                                     '$1<br/>', 1, 0);
+    SET html_string = REGEXP_REPLACE(html_string, '<br/><', '<');
+    SET html_string = REGEXP_REPLACE(html_string, '><', '> <');
+    
+    RETURN html_string;
+    
+END; //
+
+DELIMITER ;
+
+-- Every time we insert a new row into the table of lyrics, automatically add an
+-- HTML version of the lyrics.
+
+DELIMITER //
+
+CREATE TRIGGER wsdb.after_lyrics_insert BEFORE INSERT ON wsdb.lyrics
+FOR EACH ROW
+BEGIN
+    SET NEW.LyricsHTML = lyrics_xml_to_html(NEW.LyricsText, NEW.LyricsID);
+END; //
+
+CREATE TRIGGER wsdb.after_lyrics_update BEFORE UPDATE ON wsdb.lyrics
+FOR EACH ROW
+BEGIN
+    SET NEW.LyricsHTML = lyrics_xml_to_html(NEW.LyricsText, NEW.LyricsID);
+END; //
+
+DELIMITER ;
+
