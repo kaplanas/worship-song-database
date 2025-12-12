@@ -9,6 +9,8 @@ library(rhandsontable)
 library(DT)
 library(aws.s3)
 library(readr)
+library(paws)
+
 
 #### Useful stuff ####
 
@@ -81,8 +83,12 @@ ui <- navbarPage(
 # Define server logic
 server <- function(input, output, session) {
   
+  # AWS profile
+  Sys.setenv(AWS_PROFILE = "wsdb_manager_test")
+  
   # Database connection
   wsdb.con = reactiveVal(NULL)
+  dynamo.db = reactiveVal(NULL)
   
   # Reactive label tables
   label.tables = do.call(
@@ -183,7 +189,8 @@ server <- function(input, output, session) {
       {
         wsdb.con(dbConnect(MySQL(), user = input$wsdb.username,
                            password = input$wsdb.password,
-                           host = "localhost", port = 3306))
+                           host = "worship-song-db.cluster-cugagm0whbfr.us-west-2.rds.amazonaws.com",
+                           port = 3306))
         dbGetQuery(wsdb.con(), "SET NAMES utf8")
         showNotification("Login successful", type = "message")
       },
@@ -197,6 +204,9 @@ server <- function(input, output, session) {
         return()
       }
     )
+    
+    # Connection to DynamoDB
+    dynamo.db(dynamodb())
     
     # Label tables
     purrr::walk(
@@ -275,8 +285,8 @@ server <- function(input, output, session) {
         # When the user clicks the "Save" button, attempt to write the table to
         # the database and update related tables/selectors
         observeEvent(input[[paste("save", rt, sep = ".")]], {
-          save.reference.table(rt, wsdb.con(), reference.tables, label.tables,
-                               reference.changes)
+          save.reference.table(rt, wsdb.con(), dynamo.db(), reference.tables,
+                               label.tables, reference.changes)
           reference.refresh[[rt]] = T
           for(lt in reference.table.info[[rt]]$related.label.tables) {
             label.refresh[[lt]] = T

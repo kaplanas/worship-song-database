@@ -47,7 +47,8 @@ manage.artists.info = list(
   key = "ArtistID",
   related.label.tables = c("artist.labels"),
   related.selectors = c(),
-  related.processing.table = T
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/artists.R")$value
 )
 
 manage.artists = tabPanel(
@@ -508,7 +509,8 @@ manage.songbooks.info = list(
   key = "SongbookID",
   related.label.tables = c(),
   related.selectors = c("process.songbook.id"),
-  related.processing.table = T
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/songbooks.R")$value
 )
 
 manage.songbooks = tabPanel(
@@ -739,14 +741,43 @@ update.reference.table = function(reference.table, change,
   
 }
 
+# Function that converts a record to the format required by DynamoDB and writes
+# it
+update.dynamo.item = function(db.con, dynamo.con, reference.info, change.key) {
+  if("wsf.updates" %in% names(reference.info)) {
+    for(write.table in names(reference.info$wsf.updates$write)) {
+      sql = glue_sql(reference.info$wsf.updates$write[[write.table]],
+                     keys = change.key, .con = db.con)
+      item.df = dbGetQuery(db.con, sql)
+      if(nrow(item.df) > 0) {
+        item.cols = sapply(item.df, class)
+        item = list()
+        for(field in names(item.cols)) {
+          if(!is.na(item.df[[field]])) {
+            if(item.cols[field] == "integer") {
+              item[[field]] = list(N = item.df[[field]])
+            } else if(item.cols[field] == "character") {
+              item[[field]] = list(S = item.df[[field]])
+            }
+          }
+        }
+        dynamo.con$put_item(TableName = write.table, Item = item)
+      }
+    }
+  }
+}
+
 # If the user clicks "save", write the table to the database
-save.reference.table = function(reference.table, db.con,
+save.reference.table = function(reference.table, db.con, dynamo.con,
                                 reactive.reference.tables,
                                 reactive.label.tables,
                                 reactive.reference.changes) {
   
   # Info about this table
   reference.info = reference.table.info[[reference.table]]
+  
+  # Collect new and changed IDs.
+  new.changed.ids = c()
   
   # Get raw data to use for update (mapping labels back to IDs)
   temp.df = reactive.reference.tables[[reference.table]]
@@ -759,50 +790,28 @@ save.reference.table = function(reference.table, db.con,
   }
   temp.df = temp.df[,reference.info$columns$column.name]
   
-  # If there were edits, issue an UPDATE statement
-  if(length(reactive.reference.changes[[reference.table]]$edit) > 0) {
+  # If there were edits or updates, respond appropriately
+  if(length(reactive.reference.changes[[reference.table]]$edit) > 0 |
+     reactive.reference.changes[[reference.table]]$insert) {
     
-    # Create sql to update changed rows
-    sql = temp.df %>%
-      filter(.data[[reference.info$key]] %in% reactive.reference.changes[[reference.table]]$edit) %>%
-      glue_data_sql(reference.info$update.sql, .con = db.con)
-    
-    # Attempt to update changed rows
-    for(s in sql) {
-      tryCatch(
-        {
-          dbGetQuery(db.con, s)
-          reactive.reference.changes[[reference.table]]$edit = c()
-          show.changes.saved(T,
-                             db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
-                                             s))
-        },
-        error = function(err) {
-          print(err)
-          show.changes.saved(F, err.msg = err)
-        }
-      )
-    }
-    
-  }
-  
-  # If there were inserts, issue an INSERT statement
-  if(reactive.reference.changes[[reference.table]]$insert) {
-    
-    # Attempt to insert new rows
-    if(any(is.na(temp.df[[reference.info$key]]))) {
-      sql = temp.df %>%
-        filter(is.na(.data[[reference.info$key]])) %>%
-        glue_data_sql(reference.info$insert.sql, .con = db.con)
-      sql = gsub("NULL", "DEFAULT", sql)
-      for(s in sql) {
+    # If there were edits, issue a UPDATE statements and update WSF tables
+    if(length(reactive.reference.changes[[reference.table]]$edit) > 0) {
+      
+      # Iterate over changed rows
+      changed.df = temp.df %>%
+        filter(.data[[reference.info$key]] %in% reactive.reference.changes[[reference.table]]$edit)
+      for(i in 1:nrow(changed.df)) {
+        sql = changed.df[i,] %>%
+          glue_data_sql(reference.info$update.sql, .con = db.con)
         tryCatch(
           {
-            dbGetQuery(db.con, s)
-            reactive.reference.changes[[reference.table]]$insert = F
+            dbGetQuery(db.con, sql)
+            update.dynamo.item(db.con, dynamo.con, reference.info,
+                               change.key = changed.df[i,reference.info$key])
+            reactive.reference.changes[[reference.table]]$edit = c()
             show.changes.saved(T,
                                db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
-                                               s))
+                                               sql))
           },
           error = function(err) {
             print(err)
@@ -810,12 +819,70 @@ save.reference.table = function(reference.table, db.con,
           }
         )
       }
+      
+    }
+    
+    # If there were inserts, issue an INSERT statement
+    if(reactive.reference.changes[[reference.table]]$insert) {
+      
+      # Attempt to insert new rows
+      if(any(is.na(temp.df[[reference.info$key]]))) {
+        sql = temp.df %>%
+          filter(is.na(.data[[reference.info$key]])) %>%
+          glue_data_sql(reference.info$insert.sql, .con = db.con)
+        sql = gsub("NULL", "DEFAULT", sql)
+        for(s in sql) {
+          tryCatch(
+            {
+              dbGetQuery(db.con, s)
+              new.id = dbGetQuery(db.con,
+                                  "SELECT LAST_INSERT_ID() AS NEW_ID")$NEW_ID
+              update.dynamo.item(db.con, dynamo.con, reference.info,
+                                 change.key = new.id)
+              reactive.reference.changes[[reference.table]]$insert = F
+              show.changes.saved(T,
+                                 db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                                                 s))
+            },
+            error = function(err) {
+              print(err)
+              show.changes.saved(F, err.msg = err)
+            }
+          )
+        }
+      }
+      
     }
     
   }
   
-  # If there were deletions, issue a DELETE statement
+  # If there were deletions, issue a DELETE statement and delete from WSF tables
   if(reactive.reference.changes[[reference.table]]$delete) {
+    
+    # If we're also deleting from a WSF table, get keys to be deleted
+    if("wsf.updates" %in% names(reference.info) &
+       "delete" %in% names(reference.info$wsf.updates)) {
+      delete.keys = map(
+        reference.info$wsf.updates$delete,
+        function(delete.keys) {
+          sql = paste("SELECT DISTINCT ",
+                      paste(delete.keys, collapse = ", "),
+                      " FROM ", reference.info$table, " WHERE (",
+                      paste(delete.keys, collapse = ", "),
+                      ") NOT IN (",
+                      paste(map(
+                        1:nrow(temp.df),
+                        function(i) {
+                          paste("(",
+                                paste(temp.df[i,delete.keys], collapse = ", "),
+                                ")", sep = "")
+                        }
+                      ), collapse = ", "),
+                      ")", sep = "")
+          dbGetQuery(db.con, sql)
+        }
+      )
+    }
     
     # Create sql to delete rows
     sql = glue_sql(reference.info$delete.sql,
@@ -825,6 +892,24 @@ save.reference.table = function(reference.table, db.con,
     tryCatch(
       {
         dbGetQuery(db.con, sql)
+        if("wsf.updates" %in% names(reference.info) &
+           "delete" %in% names(reference.info$wsf.updates)) {
+          for(delete.table in names(delete.keys)) {
+            delete.df = delete.keys[[delete.table]]
+            item.cols = sapply(delete.df, class)
+            for(i in 1:nrow(delete.df)) {
+              key = list()
+              for(field in names(item.cols)) {
+                if(item.cols[field] == "integer") {
+                  key[[field]] = list(N = delete.df[i,field])
+                } else if(item.cols[field] == "character") {
+                  key[[field]] = list(S = delete.df[i,field])
+                }
+              }
+              dynamo.con$delete_item(Key = key, TableName = delete.table)
+            }
+          }
+        }
         reactive.reference.changes[[reference.table]]$delete = F
         show.changes.saved(T,
                            db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
