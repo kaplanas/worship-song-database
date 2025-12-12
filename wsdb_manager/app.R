@@ -183,7 +183,7 @@ server <- function(input, output, session) {
       {
         wsdb.con(dbConnect(MySQL(), user = input$wsdb.username,
                            password = input$wsdb.password,
-                           host = "localhost", port = 3306))
+                           host = Sys.getenv("WSDB_HOST"), port = 3306))
         dbGetQuery(wsdb.con(), "SET NAMES utf8")
         showNotification("Login successful", type = "message")
       },
