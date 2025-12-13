@@ -1,0 +1,16 @@
+server {
+
+	listen 443 ssl;
+	listen [::]:443 ssl;
+
+	ssl_certificate /etc/nginx/cloudflare_certificate.pem;
+	ssl_certificate_key /etc/nginx/cloudflare_certificate.pem.key;
+
+	server_name wsdb.worshipsongfinder.com;
+	root /srv/shiny-server/wsdb_manager;
+
+	location / {
+		proxy_pass http://localhost:3838/wsdb_manager/;
+	}
+
+}
