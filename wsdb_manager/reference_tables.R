@@ -47,8 +47,8 @@ manage.artists.info = list(
   key = "ArtistID",
   related.label.tables = c("artist.labels"),
   related.selectors = c(),
-  related.processing.table = T,
-  wsf.updates = source("wsf_updates/artists.R")$value
+  related.processing.table = T#,
+  #wsf.updates = source("wsf_updates/artists.R")$value
 )
 
 manage.artists = tabPanel(
@@ -509,8 +509,8 @@ manage.songbooks.info = list(
   key = "SongbookID",
   related.label.tables = c(),
   related.selectors = c("process.songbook.id"),
-  related.processing.table = T,
-  wsf.updates = source("wsf_updates/songbooks.R")$value
+  related.processing.table = T#,
+  #wsf.updates = source("wsf_updates/songbooks.R")$value
 )
 
 manage.songbooks = tabPanel(
