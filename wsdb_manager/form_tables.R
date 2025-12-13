@@ -761,8 +761,8 @@ save.form.table = function(form.table, changes, manage.id, db.con,
                        lyrics.html)
     lyrics.html = gsub("</[a-z0-9]*>", "</p>", lyrics.html)
     lyrics.html = gsub("<XXX>", "</lyrics>", lyrics.html)
-    lyrics.html = gsub("([^>])\\r", "\\1 <br/>", lyrics.html)
-    sql = "UPDATE wsdb.lyrics SET LyricsText = {lyrics.xml}, LyricsHTML = {lyrics.html} WHERE LyricsID = {id}"
+    lyrics.html = gsub("([^>])(\\r|\\n)+", "\\1 <br/>", lyrics.html)
+    sql = "UPDATE wsdb.lyrics SET LyricsText = {lyrics.xml} WHERE LyricsID = {id}"
     dbGetQuery(db.con, glue_sql(sql, .con = db.con))
     s3write_using(changes$FileContents, writeLines, bucket = "wsdb-lyrics-test",
                   object = changes$FileName)
