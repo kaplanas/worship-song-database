@@ -4,7 +4,6 @@ library(RMySQL)
 library(tidyverse)
 library(date)
 library(glue)
-library(aws.ec2metadata)
 library(rhandsontable)
 library(DT)
 library(aws.s3)
@@ -84,7 +83,7 @@ ui <- navbarPage(
 server <- function(input, output, session) {
   
   # AWS profile
-  Sys.setenv(AWS_PROFILE = "wsdb_manager_test")
+  use_credentials(profile = "wsdb_manager_shiny")
   
   # Database connection
   wsdb.con = reactiveVal(NULL)
