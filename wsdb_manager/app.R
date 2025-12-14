@@ -84,7 +84,7 @@ ui <- navbarPage(
 server <- function(input, output, session) {
   
   # AWS profile
-  use_credentials(profile = "wsdb_manager_shiny")
+  aws.creds = reactiveVal(use_credentials(profile = "wsdb-manager-shiny"))
   
   # Database connection
   wsdb.con = reactiveVal(NULL)
@@ -378,7 +378,7 @@ server <- function(input, output, session) {
           }
           save.form.table(ft, row.elements,
                           input[[paste("manage", ft, "id", sep = ".")]],
-                          wsdb.con(), label.tables, session)
+                          wsdb.con(), label.tables, aws.creds(), session)
           form.refresh[[ft]] = T
           for(lt in form.table.info[[ft]]$related.label.tables) {
             label.refresh[[lt]] = T
@@ -403,7 +403,7 @@ server <- function(input, output, session) {
         # and update related tables/selectors
         observeEvent(input[[paste("delete", ft, sep = ".")]], {
           delete.form.table(ft, input[[paste("manage", ft, "id", sep = ".")]],
-                            wsdb.con())
+                            wsdb.con(), aws.creds())
           form.refresh[[ft]] = T
           for(lt in form.table.info[[ft]]$related.label.tables) {
             label.refresh[[lt]] = T

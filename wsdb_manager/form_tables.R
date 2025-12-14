@@ -74,7 +74,8 @@ manage.lyrics.info = list(
   key = "LyricsID",
   related.label.tables = c("lyrics.labels"),
   related.selectors = c("manage.lyrics.id"),
-  related.processing.table = F
+  related.processing.table = F,
+  filename.sql = "SELECT FileName FROM wsdb.lyrics WHERE LyricsID = {LyricsID}"
 )
 
 #### Tunes ####
@@ -637,7 +638,7 @@ populate.form.page = function(form.table, row, session) {
 
 # If the user clicks "save", write the row to the database
 save.form.table = function(form.table, changes, manage.id, db.con,
-                           reactive.label.tables, session) {
+                           reactive.label.tables, aws.creds, session) {
   
   # Info about this table
   form.info = form.table.info[[form.table]]
@@ -754,24 +755,20 @@ save.form.table = function(form.table, changes, manage.id, db.con,
   # If the user provided a lyrics file, save it to the database and to S3
   if("FileContents" %in% names(changes)) {
     lyrics.xml = changes$FileContents
-    lyrics.html = gsub("<lyrics>", paste("<lyrics id=\"", id, "\">", sep = ""),
-                       lyrics.xml)
-    lyrics.html = gsub("</lyrics>", "<XXX>", lyrics.html)
-    lyrics.html = gsub("<([a-z0-9]*)>", "<p class=\"lyrics-\\1\">",
-                       lyrics.html)
-    lyrics.html = gsub("</[a-z0-9]*>", "</p>", lyrics.html)
-    lyrics.html = gsub("<XXX>", "</lyrics>", lyrics.html)
-    lyrics.html = gsub("([^>])(\\r|\\n)+", "\\1 <br/>", lyrics.html)
     sql = "UPDATE wsdb.lyrics SET LyricsText = {lyrics.xml} WHERE LyricsID = {id}"
     dbGetQuery(db.con, glue_sql(sql, .con = db.con))
-    s3write_using(changes$FileContents, writeLines, bucket = "wsdb-lyrics-test",
-                  object = changes$FileName)
+    s3write_using(changes$FileContents, FUN = writeLines,
+                  object = changes$FileName, bucket = "worship-lyrics",
+                  opts = list(base_url = paste("s3.dualstack",
+                                               aws.creds$`wsdb-manager-shiny`$AWS_DEFAULT_REGION,
+                                               "amazonaws.com", sep = "."),
+                              region = ""))
   }
   
 }
 
 # If the user clicks "delete", delete the row from the database
-delete.form.table = function(form.table, manage.id, db.con) {
+delete.form.table = function(form.table, manage.id, db.con, aws.creds) {
   
   # Info about this table
   form.info = form.table.info[[form.table]]
@@ -783,13 +780,27 @@ delete.form.table = function(form.table, manage.id, db.con) {
   # Create SQL to delete the row
   sql = temp.df %>%
     glue_data_sql(form.table.info[[form.table]]$delete.sql, .con = db.con)
+  if("filename.sql" %in% names(form.table.info[[form.table]])) {
+    filename.sql = temp.df %>%
+      glue_data_sql(form.table.info[[form.table]]$filename.sql, .con = db.con)
+    file.names = dbGetQuery(db.con, filename.sql)
+  }
   
-  # Attempt to delete row
+  # Attempt to delete row (and file, if there is one)
   tryCatch(
     {
       dbGetQuery(db.con, sql)
       show.changes.saved(T,
                          db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1", sql))
+      if("filename.sql" %in% names(form.table.info[[form.table]])) {
+        for(file.name in file.names$FileName) {
+          delete_object(object = file.name, bucket = "worship-lyrics",
+                        base_url = paste("s3.dualstack",
+                                         aws.creds$`wsdb-manager-shiny`$AWS_DEFAULT_REGION,
+                                         "amazonaws.com", sep = "."),
+                        region = "")
+        }
+      }
     },
     error = function(err) {
       print(err)
