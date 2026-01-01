@@ -205,7 +205,7 @@ server <- function(input, output, session) {
     )
     
     # Connection to DynamoDB
-    dynamo.db(dynamodb())
+    dynamo.db(dynamodb(endpoint = "dynamodb.us-west-2.api.aws"))
     
     # Label tables
     purrr::walk(
@@ -378,7 +378,8 @@ server <- function(input, output, session) {
           }
           save.form.table(ft, row.elements,
                           input[[paste("manage", ft, "id", sep = ".")]],
-                          wsdb.con(), label.tables, aws.creds(), session)
+                          wsdb.con(), dynamo.db(), label.tables, aws.creds(),
+                          session)
           form.refresh[[ft]] = T
           for(lt in form.table.info[[ft]]$related.label.tables) {
             label.refresh[[lt]] = T
@@ -403,7 +404,7 @@ server <- function(input, output, session) {
         # and update related tables/selectors
         observeEvent(input[[paste("delete", ft, sep = ".")]], {
           delete.form.table(ft, input[[paste("manage", ft, "id", sep = ".")]],
-                            wsdb.con(), aws.creds())
+                            wsdb.con(), dynamo.db(), aws.creds())
           form.refresh[[ft]] = T
           for(lt in form.table.info[[ft]]$related.label.tables) {
             label.refresh[[lt]] = T
@@ -473,8 +474,9 @@ server <- function(input, output, session) {
           if(alt.changes[[at]]$insert) {
             need.to.refresh = T
           }
-          save.alternative.tunes.table(at, wsdb.con(), alt.tables, label.tables,
-                                       alt.changes, input$alt.by.song.id,
+          save.alternative.tunes.table(at, wsdb.con(), dynamo.db(), alt.tables,
+                                       label.tables, alt.changes,
+                                       input$alt.by.song.id,
                                        input$alt.by.metrical.psalm.id,
                                        input$alt.by.tune.id)
           if(need.to.refresh) {
@@ -515,7 +517,7 @@ server <- function(input, output, session) {
     observeEvent(input$save.songbook, {
       save.songbook.table(songbook.processing, input$process.songbook.id,
                           input$process.songbook.volume.id, label.tables,
-                          wsdb.con())
+                          wsdb.con(), dynamo.db())
       songbook.processing$refresh = T
       reference.refresh$songbook.entries = T
       summary.refresh$songbook.counts = T

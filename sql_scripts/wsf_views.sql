@@ -13,7 +13,8 @@ WHERE (songbooks.IncludeInSearch);
 -- Table that connects song instances and songbooks
 CREATE OR REPLACE VIEW wsf.songinstances_songbooks AS
 WITH entries AS
-     (SELECT songinstances.SongInstanceID,
+     (SELECT songbookentries.SongbookEntryID,
+             songinstances.SongInstanceID,
              songinstances.SongID,
              songbooks.SongbookID,
              songbooks.SongbookName,
@@ -38,7 +39,9 @@ WITH entries AS
                                           ELSE ' '
                                      END,
                                      songbookentries.EntryNumber)
-                    END) AS EntryStringNoName
+                    END) AS EntryStringNoName,
+             CONCAT(songinstances.SongInstanceID, '-',
+                    COALESCE(EntryNumber, 'none')) AS SongInstanceIDEntryNumber
       FROM wsdb.songinstances
            JOIN wsdb.songbookentries
            ON songinstances.SongInstanceID = songbookentries.SongInstanceID
@@ -46,7 +49,8 @@ WITH entries AS
            ON songbookentries.SongbookID = songbooks.SongbookID
            LEFT JOIN wsdb.songbookvolumes
            ON songbookentries.SongbookVolumeID = songbookvolumes.SongbookVolumeID)
-SELECT SongInstanceID,
+SELECT SongbookEntryID,
+       SongInstanceID,
        SongID,
        SongbookID,
        SongbookName,
@@ -63,7 +67,8 @@ SELECT SongInstanceID,
        CASE WHEN SongbookID = 12
                  THEN CONCAT(EntryStringNoName, ' ', EntryNumber)
             ELSE EntryStringNoName
-       END AS EntryStringNoName
+       END AS EntryStringNoName,
+       SongInstanceIDEntryNumber
 FROM entries;
 
 -- Table that connects song instances and artists
@@ -82,7 +87,8 @@ WITH RECURSIVE
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        arrangements_artists.ArtistID,
-       'arranger' AS Role
+       'arranger' AS Role,
+       CONCAT(songinstances.SongInstanceID, '-arranger') AS SongInstanceIDRole
 FROM wsdb.songinstances
      JOIN wsdb.arrangements_artists
      ON songinstances.ArrangementID = arrangements_artists.ArrangementID
@@ -90,7 +96,8 @@ UNION ALL
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        tunes_artists.ArtistID,
-       'composer' AS Role
+       'composer' AS Role,
+       CONCAT(songinstances.SongInstanceID, '-composer') AS SongInstanceIDRole
 FROM wsdb.songinstances
      JOIN wsdb.songinstances_tunes
      ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
@@ -100,7 +107,8 @@ UNION ALL
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        lyrics_artists.ArtistID,
-       'lyricist' AS Role
+       'lyricist' AS Role,
+       CONCAT(songinstances.SongInstanceID, '-lyricist') AS SongInstanceIDRole
 FROM wsdb.songinstances
      JOIN wsdb.songinstances_lyrics
      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
@@ -110,7 +118,8 @@ UNION ALL
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        lyrics_artists.ArtistID,
-       'lyricist' AS Role
+       'lyricist' AS Role,
+       CONCAT(songinstances.SongInstanceID, '-lyricist') AS SongInstanceIDRole
 FROM translations
      JOIN wsdb.songinstances_lyrics
      ON translations.LyricsID = songinstances_lyrics.LyricsID
@@ -318,7 +327,8 @@ CREATE OR REPLACE VIEW wsf.lyrics_first_lines AS
 SELECT songinstances.SongInstanceID,
        lyrics.FirstLine,
        1 AS FirstLineOrder,
-       lyrics.LyricsID
+       lyrics.LyricsID,
+       CONCAT(lyrics.LyricsID, '-1') AS LyricsIDFirstLineOrder
 FROM wsdb.songinstances
      JOIN wsdb.songinstances_lyrics
      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
@@ -328,7 +338,8 @@ UNION ALL
 SELECT songinstances.SongInstanceID,
        lyrics.RefrainFirstLine AS FirstLine,
        2 AS FirstLineOrder,
-       lyrics.LyricsID
+       lyrics.LyricsID,
+       CONCAT(lyrics.LyricsID, '-2') AS LyricsIDFirstLineOrder
 FROM wsdb.songinstances
      JOIN wsdb.songinstances_lyrics
      ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
@@ -406,10 +417,15 @@ WITH RECURSIVE
      lyrics AS
      (SELECT SongInstanceID,
              MAX(lyrics_copyright.CopyrightYear) AS LastLyricsYear,
-             GROUP_CONCAT(DISTINCT CONCAT('© ', lyrics_copyright.CopyrightYear,
-                                          ' ',
+             GROUP_CONCAT(DISTINCT CONCAT('© ',
+                                          CASE WHEN lyrics_copyright.CopyrightYear IS NOT NULL
+                                                    THEN CONCAT(lyrics_copyright.CopyrightYear,
+                                                                ' ')
+                                               ELSE ''
+                                          END,
                                           lyrics_copyright.CopyrightHolderNames)
-                          ORDER BY lyrics_copyright.CopyrightYear
+                          ORDER BY ISNULL(lyrics_copyright.CopyrightYear),
+                                   lyrics_copyright.CopyrightYear
                           SEPARATOR '; ') AS LyricsCopyright
       FROM wsdb.songinstances_lyrics
            JOIN lyrics_copyright
@@ -453,10 +469,15 @@ WITH RECURSIVE
                           ORDER BY tunes_copyright.TuneName
                           SEPARATOR ', ') AS Tunes,
              MAX(tunes_copyright.CopyrightYear) AS LastTuneYear,
-             GROUP_CONCAT(DISTINCT CONCAT('© ', tunes_copyright.CopyrightYear,
-                                          ' ',
+             GROUP_CONCAT(DISTINCT CONCAT('© ',
+                                          CASE WHEN tunes_copyright.CopyrightYear IS NOT NULL
+                                                    THEN CONCAT(tunes_copyright.CopyrightYear,
+                                                                ' ')
+                                               ELSE ''
+                                          END,
                                           tunes_copyright.CopyrightHolderNames)
-                          ORDER BY tunes_copyright.CopyrightYear
+                          ORDER BY ISNULL(tunes_copyright.CopyrightYear),
+                                   tunes_copyright.CopyrightYear
                           SEPARATOR '; ') AS TuneCopyright
       FROM wsdb.songinstances_tunes
            JOIN tunes_copyright
@@ -541,7 +562,96 @@ WITH RECURSIVE
                                    lyrics_first_lines.LyricsID
                           SEPARATOR '<br/>') AS LyricsFirstLines
       FROM wsf.lyrics_first_lines
-      GROUP BY lyrics_first_lines.SongInstanceID)
+      GROUP BY lyrics_first_lines.SongInstanceID),
+     ordered_refs AS
+     (SELECT songinstances_scripturereferences.SongInstanceID,
+             scripturereferences.BookID,
+             scripturereferences.BookAbbreviation,
+             scripturereferences.Chapter,
+             scripturereferences.Verse,
+             CASE WHEN COALESCE(LAG(scripturereferences.Verse)
+                                OVER(PARTITION BY songinstances_scripturereferences.SongInstanceID,
+                                                  scripturereferences.BookID,
+                                                  scripturereferences.Chapter
+                                     ORDER BY scripturereferences.Verse), -1) <> scripturereferences.Verse - 1
+                       THEN scripturereferences.Verse
+             END AS FirstInSeq,
+             CASE WHEN COALESCE(LEAD(scripturereferences.Verse)
+                                OVER(PARTITION BY songinstances_scripturereferences.SongInstanceID,
+                                                  scripturereferences.BookID,
+                                                  scripturereferences.Chapter
+                                     ORDER BY scripturereferences.Verse), -1) <> scripturereferences.Verse + 1
+                       THEN scripturereferences.Verse
+             END AS LastInSeq
+      FROM wsf.songinstances_scripturereferences
+           JOIN wsf.scripturereferences
+           ON songinstances_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID),
+     filled_refs AS
+     (SELECT ordered_refs.SongInstanceID,
+             ordered_refs.BookID,
+             ordered_refs.BookAbbreviation,
+             ordered_refs.Chapter,
+             ordered_refs.Verse,
+             COALESCE(ordered_refs.FirstInSeq,
+                      LAG(ordered_refs.FirstInSeq)
+                      OVER (PARTITION BY ordered_refs.SongInstanceID,
+                                         ordered_refs.BookID,
+                                         ordered_refs.Chapter
+                            ORDER BY ordered_refs.Verse)) AS FirstInSeq,
+             COALESCE(ordered_refs.LastInSeq,
+                      LEAD(ordered_refs.LastInSeq)
+                      OVER (PARTITION BY ordered_refs.SongInstanceID,
+                                         ordered_refs.BookID,
+                                         ordered_refs.Chapter
+                            ORDER BY ordered_refs.Verse)) AS LastInSeq
+      FROM ordered_refs
+      WHERE ordered_refs.FirstInSeq IS NOT NULL
+            OR ordered_refs.LastInSeq IS NOT NULL),
+     collapsed_refs AS
+     (SELECT DISTINCT filled_refs.SongInstanceID,
+             filled_refs.BookID,
+             filled_refs.BookAbbreviation,
+             filled_refs.Chapter,
+             filled_refs.FirstInSeq AS FirstVerse,
+             CONCAT(filled_refs.FirstInSeq,
+                    CASE WHEN filled_refs.FirstInSeq = filled_refs.LastInSeq
+                              THEN ''
+                         ELSE CONCAT('-', filled_refs.LastInSeq)
+                    END) AS Verses
+      FROM filled_refs),
+     refs_by_chapter AS
+     (SELECT collapsed_refs.SongInstanceID,
+             collapsed_refs.BookID,
+             collapsed_refs.BookAbbreviation,
+             collapsed_refs.Chapter,
+             GROUP_CONCAT(collapsed_refs.Verses
+                          ORDER BY collapsed_refs.FirstVerse
+                          SEPARATOR ', ') AS Verses
+      FROM collapsed_refs
+      GROUP BY collapsed_refs.SongInstanceID,
+               collapsed_refs.BookID,
+               collapsed_refs.BookAbbreviation,
+               collapsed_refs.Chapter),
+     refs_by_book AS
+     (SELECT refs_by_chapter.SongInstanceID,
+             refs_by_chapter.BookID,
+             refs_by_chapter.BookAbbreviation,
+             GROUP_CONCAT(CONCAT(refs_by_chapter.Chapter, ':',
+                                 refs_by_chapter.Verses)
+                          ORDER BY refs_by_chapter.Chapter
+                          SEPARATOR ', ') AS Verses
+      FROM refs_by_chapter
+      GROUP BY refs_by_chapter.SongInstanceID,
+               refs_by_chapter.BookID,
+               refs_by_chapter.BookAbbreviation),
+     prettyscripturelists AS
+     (SELECT refs_by_book.SongInstanceID,
+             GROUP_CONCAT(CONCAT(refs_by_book.BookAbbreviation, ' ',
+                                 refs_by_book.Verses)
+                          ORDER BY refs_by_book.BookID
+                          SEPARATOR '; ') AS PrettyScriptureList
+      FROM refs_by_book
+      GROUP BY refs_by_book.SongInstanceID)
 SELECT songinstances.SongInstanceID,
        songinstances.SongInstance,
        LOWER(songinstances.SongInstance) AS SongInstanceLower,
@@ -640,7 +750,7 @@ FROM wsdb.songinstances
      ON songinstances.SongInstanceID = timesignatures.SongInstanceID
      LEFT JOIN entries
      ON songinstances.SongInstanceID = entries.SongInstanceID
-     LEFT JOIN wsdb.prettyscripturelists
+     LEFT JOIN prettyscripturelists
      ON songinstances.SongInstanceID = prettyscripturelists.SongInstanceID
      LEFT JOIN first_lines
      ON songinstances.SongInstanceID = first_lines.SongInstanceID;
@@ -1003,6 +1113,88 @@ WITH RECURSIVE
            JOIN translations
            ON metricalpsalms_lyrics.LyricsID = translations.LyricsID
       GROUP BY metricalpsalms_lyrics.MetricalPsalmID),
+     all_refs AS
+     (SELECT songinstances_scripturereferences.SongID,
+             NULL AS MetricalPsalmID,
+             scripturereferences.Chapter,
+             scripturereferences.Verse
+      FROM wsf.songinstances_scripturereferences
+           JOIN wsf.scripturereferences
+           ON songinstances_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID
+      WHERE scripturereferences.BookID = 19
+      UNION ALL
+      SELECT NULL AS SongID,
+             metricalpsalms_lyrics.MetricalPsalmID,
+             scripturereferences.Chapter,
+             scripturereferences.Verse
+      FROM wsdb.metricalpsalms_lyrics
+           JOIN wsdb.lyrics_scripturereferences
+           ON metricalpsalms_lyrics.LyricsID = lyrics_scripturereferences.LyricsID
+           JOIN wsf.scripturereferences
+           ON lyrics_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID
+      WHERE scripturereferences.BookID = 19),
+     ordered_refs AS
+     (SELECT all_refs.SongID,
+             all_refs.MetricalPsalmID,
+             all_refs.Chapter,
+             all_refs.Verse,
+             CASE WHEN COALESCE(LAG(all_refs.Verse)
+                                OVER(PARTITION BY all_refs.SongID,
+                                                  all_refs.MetricalPsalmID,
+                                                  all_refs.Chapter
+                                     ORDER BY all_refs.Verse), -1) <> all_refs.Verse - 1
+                       THEN all_refs.Verse
+             END AS FirstInSeq,
+             CASE WHEN COALESCE(LEAD(all_refs.Verse)
+                                OVER(PARTITION BY all_refs.SongID,
+                                                  all_refs.MetricalPsalmID,
+                                                  all_refs.Chapter
+                                     ORDER BY all_refs.Verse), -1) <> all_refs.Verse + 1
+                       THEN all_refs.Verse
+             END AS LastInSeq
+      FROM all_refs),
+     filled_refs AS
+     (SELECT ordered_refs.SongID,
+             ordered_refs.MetricalPsalmID,
+             ordered_refs.Chapter,
+             ordered_refs.Verse,
+             COALESCE(ordered_refs.FirstInSeq,
+                      LAG(ordered_refs.FirstInSeq)
+                      OVER (PARTITION BY ordered_refs.SongID,
+                                         ordered_refs.MetricalPsalmID,
+                                         ordered_refs.Chapter
+                            ORDER BY ordered_refs.Verse)) AS FirstInSeq,
+             COALESCE(ordered_refs.LastInSeq,
+                      LEAD(ordered_refs.LastInSeq)
+                      OVER (PARTITION BY ordered_refs.SongID,
+                                         ordered_refs.MetricalPsalmID,
+                                         ordered_refs.Chapter
+                            ORDER BY ordered_refs.Verse)) AS LastInSeq
+      FROM ordered_refs
+      WHERE ordered_refs.FirstInSeq IS NOT NULL
+            OR ordered_refs.LastInSeq IS NOT NULL),
+     collapsed_refs AS
+     (SELECT DISTINCT filled_refs.SongID,
+             filled_refs.MetricalPsalmID,
+             filled_refs.Chapter,
+             filled_refs.FirstInSeq AS FirstVerse,
+             CONCAT(filled_refs.FirstInSeq,
+                    CASE WHEN filled_refs.FirstInSeq = filled_refs.LastInSeq
+                              THEN ''
+                         ELSE CONCAT('-', filled_refs.LastInSeq)
+                    END) AS Verses
+      FROM filled_refs),
+     prettyscripturelists AS
+     (SELECT collapsed_refs.SongID,
+             collapsed_refs.MetricalPsalmID,
+             collapsed_refs.Chapter,
+             CONVERT(GROUP_CONCAT(collapsed_refs.Verses
+                                  ORDER BY collapsed_refs.FirstVerse
+                                  SEPARATOR ', ') USING utf8mb4) AS PrettyScriptureList
+      FROM collapsed_refs
+      GROUP BY collapsed_refs.SongID,
+               collapsed_refs.MetricalPsalmID,
+               collapsed_refs.Chapter),
      ps AS
      (SELECT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
              psalmsongs.PsalmNumber,
@@ -1013,33 +1205,31 @@ WITH RECURSIVE
              psalmsongtypes.PsalmSongType,
              songs.SongName AS PsalmSongTitle,
              songs.PanelName,
-             REGEXP_REPLACE(psalmsongs_prettyscripturelists.PrettyScriptureList,
-                            '^Ps [0-9]+:', '') AS PrettyScriptureList,
+             prettyscripturelists.PrettyScriptureList,
              songinstances.Artists,
-             CONCAT('<br/><h3>', psalmsongtypes.PsalmSongType, '</h3>',
-                    CASE WHEN songs.SongbookEntries IS NOT NULL
-                              THEN CONCAT('<p>', songs.SongbookEntries, '</p>')
-                         ELSE ''
-                    END,
-                    '<p><b>Verses:</b> ',
-                    REGEXP_REPLACE(psalmsongs_prettyscripturelists.PrettyScriptureList,
-                                   '^Ps [0-9]+:', ''),
-                    '</p>',
-                    CASE WHEN songinstances.Artists IS NOT NULL
-                              THEN CONCAT('<p>', songinstances.Artists, '</p>')
-                         ELSE ''
-                    END,
-                    CASE WHEN firstlines.FirstLines IS NOT NULL
-                              THEN CONCAT('<p>', firstlines.FirstLines, '</p>')
-                         ELSE ''
-                    END) AS HTMLInfo
+             CONVERT(CONCAT('<br/><h3>', psalmsongtypes.PsalmSongType, '</h3>',
+                            CASE WHEN songs.SongbookEntries IS NOT NULL
+                                      THEN CONCAT('<p>', songs.SongbookEntries, '</p>')
+                                 ELSE ''
+                            END,
+                            '<p><b>Verses:</b> ',
+                            prettyscripturelists.PrettyScriptureList, '</p>',
+                            CASE WHEN songinstances.Artists IS NOT NULL
+                                      THEN CONCAT('<p>', songinstances.Artists, '</p>')
+                                 ELSE ''
+                            END,
+                            CASE WHEN firstlines.FirstLines IS NOT NULL
+                                      THEN CONCAT('<p>', firstlines.FirstLines, '</p>')
+                                 ELSE ''
+                            END) USING utf8mb4) AS HTMLInfo
       FROM wsdb.psalmsongs
            JOIN wsdb.psalmsongtypes
            ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
            JOIN wsf.songs
            ON psalmsongs.SongID = songs.SongID
-           LEFT JOIN wsdb.psalmsongs_prettyscripturelists
-           ON psalmsongs.PsalmSongID = psalmsongs_prettyscripturelists.PsalmSongID
+           LEFT JOIN prettyscripturelists
+           ON psalmsongs.SongID = prettyscripturelists.SongID
+              AND psalmsongs.PsalmNumber = prettyscripturelists.Chapter
            LEFT JOIN songinstances
            ON psalmsongs.SongID = songinstances.SongID
               AND songinstances.RowNum = 1
@@ -1059,25 +1249,24 @@ WITH RECURSIVE
                               THEN ''
                          ELSE CONCAT('<br/>', laterfirstlines.LaterFirstLines)
                     END) AS PanelName,
-             metricalpsalms_prettyscripturelists.PrettyScriptureList,
+             prettyscripturelists.PrettyScriptureList,
              metricalpsalms_artists.Lyricists AS Artists,
-             CONCAT('<br/><h3>Paraphrase</h3>', '<p><b>Verses:</b> ',
-                    REGEXP_REPLACE(metricalpsalms_prettyscripturelists.PrettyScriptureList,
-                                   '^Ps [0-9]+:', ''),
-                    '</p>',
-                    CASE WHEN metricalpsalms_artists.Lyricists IS NOT NULL
-                              THEN CONCAT('<p>',
-                                          metricalpsalms_artists.Lyricists,
-                                          '</p>')
-                    END,
-                    '<p>', firstlines.FirstLines, '</p>') AS HTMLInfo
+             CONVERT(CONCAT('<br/><h3>Paraphrase</h3>', '<p><b>Verses:</b> ',
+                            prettyscripturelists.PrettyScriptureList, '</p>',
+                            CASE WHEN metricalpsalms_artists.Lyricists IS NOT NULL
+                                      THEN CONCAT('<p>',
+                                                  metricalpsalms_artists.Lyricists,
+                                                  '</p>')
+                            END,
+                            '<p>', firstlines.FirstLines, '</p>') USING utf8mb4) AS HTMLInfo
       FROM wsdb.metricalpsalms
            JOIN not_psalmsongs
            ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = not_psalmsongs.PsalmSongID
            LEFT JOIN laterfirstlines
            ON CONCAT('MP', metricalpsalms.MetricalPsalmID) = laterfirstlines.PsalmSongID
-           LEFT JOIN wsdb.metricalpsalms_prettyscripturelists
-           ON metricalpsalms.MetricalPsalmID = metricalpsalms_prettyscripturelists.MetricalPsalmID
+           LEFT JOIN prettyscripturelists
+           ON metricalpsalms.MetricalPsalmID = prettyscripturelists.MetricalPsalmID
+              AND metricalpsalms.PsalmNumber = prettyscripturelists.Chapter
            LEFT JOIN metricalpsalms_artists
            ON metricalpsalms.MetricalPsalmID = metricalpsalms_artists.MetricalPsalmID
            LEFT JOIN firstlines

@@ -38,7 +38,8 @@ manage.songs.info = list(
   key = "SongID",
   related.label.tables = c("song.labels"),
   related.selectors = c("manage.songs.id", "alt.by.song.id"),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/songs.R")$value
 )
 
 #### Lyrics ####
@@ -75,6 +76,7 @@ manage.lyrics.info = list(
   related.label.tables = c("lyrics.labels"),
   related.selectors = c("manage.lyrics.id"),
   related.processing.table = F,
+  wsf.updates = source("wsf_updates/lyrics.R")$value,
   filename.sql = "SELECT FileName FROM wsdb.lyrics WHERE LyricsID = {LyricsID}"
 )
 
@@ -106,7 +108,8 @@ manage.tunes.info = list(
   key = "TuneID",
   related.label.tables = c("tune.labels"),
   related.selectors = c("manage.tunes.id", "alt.by.tune.id"),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/tunes.R")$value
 )
 
 #### Arrangements ####
@@ -139,7 +142,8 @@ manage.arrangements.info = list(
   key = "ArrangementID",
   related.label.tables = c("arrangement.labels"),
   related.selectors = c("manage.arrangements.id"),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/arrangements.R")$value
 )
 
 #### Song instances ####
@@ -174,42 +178,7 @@ manage.song.instances.info = list(
   related.label.tables = c("song.instance.labels"),
   related.selectors = c("manage.song.instances.id"),
   related.processing.table = F,
-  extra.delete.sql = "DELETE FROM wsdb.prettyscripturelists WHERE SongInstanceID = {SongInstanceID}"
-)
-
-#### Song instances ####
-
-manage.song.instances.info = list(
-  table = "wsdb.songinstances",
-  select.label = "Choose song instance:",
-  columns = data.frame(
-    column.name = c("SongInstanceID", "SongInstance", "LyricsID", "TuneID",
-                    "ArrangementID", "SongID", "KeySignatureID",
-                    "TimeSignatureID", "Created", "Updated"),
-    form.label = c("Song instance ID", "Song instance name", "Lyrics", "Tunes",
-                   "Arrangement", "Song", "Key signatures", "Time signatures",
-                   "Date created", "Date updated"),
-    key.table = c(NA, NA, "lyrics.labels", "tune.labels", "arrangement.labels",
-                  "song.labels", "key.signature.labels",
-                  "time.signature.labels", NA, NA),
-    key.label = c(NA, NA, "LyricsLabel", "TuneLabel", "ArrangementLabel",
-                  "SongLabel", "KeySignatureLabel", "TimeSignatureLabel", NA,
-                  NA),
-    multi.table = c(NA, NA, "wsdb.songinstances_lyrics",
-                    "wsdb.songinstances_tunes", NA, NA,
-                    "wsdb.songinstances_keysignatures",
-                    "wsdb.songinstances_timesignatures", NA, NA),
-    type = c("numeric", "text", "text", "text", "text", "text", "text", "text",
-             "date", "date"),
-    editable = c(F, T, T, T, T, T, T, T, F, F),
-    stringsAsFactors = F
-  ),
-  sort = c("SongInstance", "SongInstanceID"),
-  key = "SongInstanceID",
-  related.label.tables = c("song.instance.labels"),
-  related.selectors = c("manage.song.instances.id"),
-  related.processing.table = F,
-  extra.delete.sql = "DELETE FROM wsdb.prettyscripturelists WHERE SongInstanceID = {SongInstanceID}"
+  wsf.updates = source("wsf_updates/songinstances.R")$value
 )
 
 #### Metrical psalms ####
@@ -234,7 +203,7 @@ manage.metrical.psalms.info = list(
   related.label.tables = c("metrical.psalm.labels"),
   related.selectors = c("manage.metrical.psalms.id"),
   related.processing.table = F,
-  extra.delete.sql = "DELETE FROM wsdb.metricalpsalms_prettyscripturelists WHERE MetricalPsalmID = {MetricalPsalmID}"
+  wsf.updates = source("wsf_updates/metricalpsalms.R")$value
 )
 
 #### Combined info ####
@@ -281,7 +250,7 @@ for(form.table in names(form.table.info)) {
 
   # Create UPDATE statement for base table
   sql = form.info$columns %>%
-    filter(editable | type == "file", is.na(multi.table)) %>%
+    filter(editable, is.na(multi.table)) %>%
     mutate(update = paste(column.name, " = {", column.name, "}", sep = "")) %>%
     pull(update) %>%
     paste(collapse = ", ") %>%
@@ -325,12 +294,12 @@ for(form.table in names(form.table.info)) {
   sql = paste(
     "INSERT INTO ", form.info$table, "(",
     form.info$columns %>%
-      filter(editable | type == "file", is.na(multi.table)) %>%
+      filter(editable, is.na(multi.table)) %>%
       pull(column.name) %>%
       paste(collapse = ", "),
     ") VALUES (",
     form.info$columns %>%
-      filter(editable | type == "file", is.na(multi.table)) %>%
+      filter(editable, is.na(multi.table)) %>%
       mutate(column.name = paste("{", column.name, "}", sep = "")) %>%
       pull(column.name) %>%
       paste(collapse = ", "),
@@ -637,7 +606,7 @@ populate.form.page = function(form.table, row, session) {
 }
 
 # If the user clicks "save", write the row to the database
-save.form.table = function(form.table, changes, manage.id, db.con,
+save.form.table = function(form.table, changes, manage.id, db.con, dynamo.con,
                            reactive.label.tables, aws.creds, session) {
   
   # Info about this table
@@ -647,9 +616,13 @@ save.form.table = function(form.table, changes, manage.id, db.con,
   id = manage.id
   
   # Convert input fields into a dataframe
-  temp.df = data.frame(changes[form.info$columns$column.name[is.na(form.info$columns$multi.table) & (form.info$columns$editable | form.info$columns$type == "file")]])
+  temp.df = data.frame(changes[form.info$columns$column.name[is.na(form.info$columns$multi.table) & form.info$columns$editable]])
   temp.df[[form.info$key]] = id
-  
+ 
+  # Update DynamoDB
+  showNotification("Writing WSF changes...")
+  delete.dynamo.multi.items(db.con, dynamo.con, form.info, id)
+   
   # If this is a new record, create SQL to insert into the base table
   if(id == -1) {
     
@@ -696,9 +669,9 @@ save.form.table = function(form.table, changes, manage.id, db.con,
         show.changes.saved(F, err.msg = err)
       }
     )
-    
+
   }
-  
+
   # Create SQL to update many-to-many tables
   for(i in 1:nrow(form.info$columns)) {
     col.info = form.info$columns[i,]
@@ -733,29 +706,36 @@ save.form.table = function(form.table, changes, manage.id, db.con,
         sql = sql %>%
           glue_data_sql(form.info$update.multi.sql[[col.info$column.name]]$insert,
                         .con = db.con)
+        all.changes.successful = T
         for(s in sql) {
           tryCatch(
             {
               dbGetQuery(db.con, s)
-              show.changes.saved(T,
-                                 db.table = gsub("^.*(wsdb\\.[a-z_]+).*$",
-                                                 "\\1", s))
             },
             error = function(err) {
+              all.changes.successful = F
               print(err)
               show.changes.saved(F, err.msg = err)
             }
           )
         }
+        show.changes.saved(T,
+                           db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1", s))
       }
       
     }
   }
+
+  # Update DynamoDB
+  showNotification("Writing WSF changes...")
+  write.dynamo.items(db.con, dynamo.con, form.info, id)
+  insert.dynamo.multi.items(db.con, dynamo.con, form.info, id)
+  show.changes.saved(T, form.table)
   
   # If the user provided a lyrics file, save it to the database and to S3
   if("FileContents" %in% names(changes)) {
     lyrics.xml = changes$FileContents
-    sql = "UPDATE wsdb.lyrics SET LyricsText = {lyrics.xml} WHERE LyricsID = {id}"
+    sql = "UPDATE wsdb.lyrics SET FileName = {changes$FileName}, LyricsText = {lyrics.xml} WHERE LyricsID = {id}"
     dbGetQuery(db.con, glue_sql(sql, .con = db.con))
     s3write_using(changes$FileContents, FUN = writeLines,
                   object = changes$FileName, bucket = "worship-lyrics",
@@ -768,7 +748,8 @@ save.form.table = function(form.table, changes, manage.id, db.con,
 }
 
 # If the user clicks "delete", delete the row from the database
-delete.form.table = function(form.table, manage.id, db.con, aws.creds) {
+delete.form.table = function(form.table, manage.id, db.con, dynamo.con,
+                             aws.creds) {
   
   # Info about this table
   form.info = form.table.info[[form.table]]
@@ -789,7 +770,12 @@ delete.form.table = function(form.table, manage.id, db.con, aws.creds) {
   # Attempt to delete row (and file, if there is one)
   tryCatch(
     {
+      delete.keys = get.dynamo.delete.keys(db.con,
+                                           form.table.info[[form.table]],
+                                           temp.df, exclude = F)
       dbGetQuery(db.con, sql)
+      delete.dynamo.items(dynamo.con, form.table.info[[form.table]],
+                          delete.keys)
       show.changes.saved(T,
                          db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1", sql))
       if("filename.sql" %in% names(form.table.info[[form.table]])) {

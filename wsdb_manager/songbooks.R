@@ -1,6 +1,7 @@
 #### Processing table info ####
 
 process.songbook.info = list(
+  key = "SongbookEntryID",
   select.sql = "SELECT songbookentries.SongbookEntryID,
                        songbook_labels.SongbookLabel,
                        songbookvolume_labels.SongbookVolumeLabel,
@@ -24,6 +25,7 @@ process.songbook.info = list(
     width = c(NA, NA, NA, 400, 200),
     stringsAsFactors = F
   ),
+  wsf.updates = source("wsf_updates/songinstances_songbooks.R")$value,
   update.sql = "UPDATE wsdb.songbookentries
                 SET EntryNumber = {EntryNumber},
                     SongInstanceID = {SongInstanceID}
@@ -152,7 +154,7 @@ update.songbook.hot = function(change, reactive.songbook.processing) {
 # tables accordingly
 save.songbook.table = function(reactive.songbook.processing,
                                process.songbook.id, process.songbook.volume.id,
-                               reactive.label.tables, db.con) {
+                               reactive.label.tables, db.con, dynamo.con) {
   
   # Keep track of whether all updates were successful
   successful.updates = T
@@ -165,21 +167,25 @@ save.songbook.table = function(reactive.songbook.processing,
            SongbookVolumeID = na_if(process.songbook.volume.id, "-1")) %>%
     dplyr::select(SongbookEntryID, SongbookID, SongbookVolumeID, SongInstanceID,
                   EntryNumber)
-  
+
   # If there were edits, issue an UPDATE statement
   if(length(reactive.songbook.processing$changes$edit) > 0) {
     
     # Create sql to update changed rows
-    sql = temp.df %>%
-      filter(SongbookEntryID %in% reactive.songbook.processing$changes$edit) %>%
+    update.df = temp.df %>%
+      filter(SongbookEntryID %in% reactive.songbook.processing$changes$edit)
+    sql = update.df %>%
       glue_data_sql(process.songbook.info$update.sql, .con = db.con)
     sql = gsub("= NULL", "IS NULL", sql)
     
     # Attempt to update changed rows
-    for(s in sql) {
+    for(i in 1:length(sql)) {
       tryCatch(
         {
-          dbGetQuery(db.con, s)
+          dbGetQuery(db.con, sql[i])
+          showNotification("Writing WSF changes...")
+          write.dynamo.items(db.con, dynamo.con, process.songbook.info,
+                             change.key = update.df[i,process.songbook.info$key])
           reactive.songbook.processing$changes$edit = F
         },
         error = function(err) {
@@ -193,19 +199,25 @@ save.songbook.table = function(reactive.songbook.processing,
   
   # If there were inserts, issue an INSERT statement
   if(reactive.songbook.processing$changes$insert ||
-     (nrow(temp.df) == 1 & is.na(temp.df$SongbookEntryID))) {
+     (nrow(temp.df) == 1 && "SongbookEntryID" %in% colnames(temp.df) &&
+      is.na(temp.df$SongbookEntryID))) {
     
     # Attempt to insert new rows
     if(any(is.na(temp.df$SongbookEntryID))) {
       sql = temp.df %>%
         filter(is.na(SongbookEntryID)) %>%
-        dplyr::select(-SongbookEntryID) %>%
+        dplyr::select(-c("SongbookEntryID")) %>%
         glue_data_sql(process.songbook.info$insert.sql, .con = db.con)
       sql = gsub("= NULL", "IS NULL", sql)
       for(s in sql) {
         tryCatch(
           {
             dbGetQuery(db.con, s)
+            new.id = dbGetQuery(db.con,
+                                "SELECT LAST_INSERT_ID() AS NEW_ID")$NEW_ID
+            showNotification("Writing WSF changes...")
+            write.dynamo.items(db.con, dynamo.con, process.songbook.info,
+                               change.key = new.id)
             reactive.songbook.processing$changes$insert = F
           },
           error = function(err) {
@@ -221,17 +233,32 @@ save.songbook.table = function(reactive.songbook.processing,
   # If there were deletions, issue a DELETE statement
   if(reactive.songbook.processing$changes$delete) {
     
+    # If we're also deleting from a WSF table, get keys to be deleted
+    sql = "SELECT SongbookEntryID
+           FROM wsdb.songbookentries
+           WHERE SongbookID = {process.songbook.id}
+                 AND SongbookVolumeID = {process.songbook.volume.id}
+                 AND SongbookEntryID NOT IN ({keys*})"
+    sql = glue_sql(sql, process.songbook.id = process.songbook.id,
+                   process.songbook.volume.id = na_if(process.songbook.volume.id, "-1"),
+                   keys = c(-1, temp.df$SongbookEntryID), .con = db.con)
+    delete.keys = dbGetQuery(db.con, sql)
+    
     # Create sql to delete rows
     sql = glue_sql(process.songbook.info$delete.sql,
                    process.songbook.id = process.songbook.id,
                    process.songbook.volume.id = na_if(process.songbook.volume.id, "-1"),
-                   keys = paste(temp.df$SongbookEntryID), .con = db.con)
+                   keys = c(-1, temp.df$SongbookEntryID), .con = db.con)
     sql = gsub("= NULL", "IS NULL", sql)
     
     # Attempt to delete rows
     tryCatch(
       {
         dbGetQuery(db.con, sql)
+        showNotification("Writing WSF changes...")
+        delete.dynamo.items(dynamo.con, process.songbook.info, delete.keys)
+        write.dynamo.items(db.con, dynamo.con, process.songbook.info,
+                           temp.df$SongbookEntryID)
         reactive.songbook.processing$changes$delete = F
       },
       error = function(err) {
@@ -241,7 +268,7 @@ save.songbook.table = function(reactive.songbook.processing,
     )
     
   }
-  
+
   # If anything went wrong, display a notice
   if(successful.updates) {
     showNotification("Changes saved", type = "message")

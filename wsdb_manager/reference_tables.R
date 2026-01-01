@@ -47,8 +47,8 @@ manage.artists.info = list(
   key = "ArtistID",
   related.label.tables = c("artist.labels"),
   related.selectors = c(),
-  related.processing.table = T#,
-  #wsf.updates = source("wsf_updates/artists.R")$value
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/artists.R")$value
 )
 
 manage.artists = tabPanel(
@@ -108,7 +108,8 @@ manage.copyright.holders.info = list(
   key = "CopyrightHolderID",
   related.label.tables = c("copyright.holder.labels"),
   related.selectors = c(),
-  related.processing.table = T
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/copyrightholders.R")$value
 )
 
 manage.copyright.holders = tabPanel(
@@ -195,7 +196,8 @@ manage.scripture.references.info = list(
   key = "ScriptureReferenceID",
   related.label.tables = c("scripture.reference.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/scripturereferences.R")$value
 )
 
 manage.scripture.references = tabPanel(
@@ -224,7 +226,8 @@ manage.meters.info = list(
   key = "MeterID",
   related.label.tables = c("meter.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/meters.R")$value
 )
 
 manage.meters = tabPanel(
@@ -252,7 +255,8 @@ manage.pitches.info = list(
   key = "PitchID",
   related.label.tables = c("pitch.labels", "key.signature.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/pitches.R")$value
 )
 
 manage.pitches = tabPanel(
@@ -280,7 +284,8 @@ manage.accidentals.info = list(
   key = "AccidentalID",
   related.label.tables = c("accidental.labels", "key.signature.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/accidentals.R")$value
 )
 
 manage.accidentals = tabPanel(
@@ -308,7 +313,8 @@ manage.modes.info = list(
   key = "ModeID",
   related.label.tables = c("mode.labels", "key.signature.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/modes.R")$value
 )
 
 manage.modes = tabPanel(
@@ -339,7 +345,8 @@ manage.key.signatures.info = list(
   key = "KeySignatureID",
   related.label.tables = c("key.signature.labels"),
   related.selectors = c(),
-  related.processing.table = T
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/keysignatures.R")$value
 )
 
 manage.key.signatures = tabPanel(
@@ -366,9 +373,10 @@ manage.time.signatures.info = list(
   fixed.cols = 3,
   sort = c("TimeSignatureMeasure", "TimeSignatureBeat"),
   key = "TimeSignatureID",
-  related.label.tables = c(),
+  related.label.tables = c("time.signature.labels"),
   related.selectors = c(),
-  related.processing.table = T
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/timesignatures.R")$value
 )
 
 manage.time.signatures = tabPanel(
@@ -396,7 +404,8 @@ manage.arrangement.types.info = list(
   key = "ArrangementTypeID",
   related.label.tables = c("arrangement.type.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/arrangementtypes.R")$value
 )
 
 manage.arrangement.types = tabPanel(
@@ -424,7 +433,8 @@ manage.topics.info = list(
   key = "TopicID",
   related.label.tables = c("topic.labels"),
   related.selectors = c(),
-  related.processing.table = F
+  related.processing.table = F,
+  wsf.updates = source("wsf_updates/topics.R")$value
 )
 
 manage.topics = tabPanel(
@@ -509,8 +519,8 @@ manage.songbooks.info = list(
   key = "SongbookID",
   related.label.tables = c(),
   related.selectors = c("process.songbook.id"),
-  related.processing.table = T#,
-  #wsf.updates = source("wsf_updates/songbooks.R")$value
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/songbooks.R")$value
 )
 
 manage.songbooks = tabPanel(
@@ -538,7 +548,8 @@ manage.songbook.volumes.info = list(
   key = "SongbookVolumeID",
   related.label.tables = c(),
   related.selectors = c("process.songbook.volume.id"),
-  related.processing.table = T
+  related.processing.table = T,
+  wsf.updates = source("wsf_updates/songbookvolumes.R")$value
 )
 
 manage.songbook.volumes = tabPanel(
@@ -564,6 +575,7 @@ reference.table.info = list(
   modes = manage.modes.info,
   key.signatures = manage.key.signatures.info,
   time.signatures = manage.time.signatures.info,
+  arrangement.types = manage.arrangement.types.info,
   topics = manage.topics.info,
   song.types = manage.song.types.info,
   song.tempi = manage.song.tempi.info,
@@ -615,7 +627,6 @@ reference.tables.page = tabPanel("Manage reference tables",
                                    manage.copyright.administrators,
                                    manage.copyright.holders,
                                    manage.languages,
-                                   manage.books.of.the.bible,
                                    manage.scripture.references,
                                    manage.meters,
                                    manage.pitches,
@@ -623,6 +634,7 @@ reference.tables.page = tabPanel("Manage reference tables",
                                    manage.modes,
                                    manage.key.signatures,
                                    manage.time.signatures,
+                                   manage.arrangement.types,
                                    manage.topics,
                                    manage.song.types,
                                    manage.song.tempi,
@@ -741,32 +753,6 @@ update.reference.table = function(reference.table, change,
   
 }
 
-# Function that converts a record to the format required by DynamoDB and writes
-# it
-update.dynamo.item = function(db.con, dynamo.con, reference.info, change.key) {
-  if("wsf.updates" %in% names(reference.info)) {
-    for(write.table in names(reference.info$wsf.updates$write)) {
-      sql = glue_sql(reference.info$wsf.updates$write[[write.table]],
-                     keys = change.key, .con = db.con)
-      item.df = dbGetQuery(db.con, sql)
-      if(nrow(item.df) > 0) {
-        item.cols = sapply(item.df, class)
-        item = list()
-        for(field in names(item.cols)) {
-          if(!is.na(item.df[[field]])) {
-            if(item.cols[field] == "integer") {
-              item[[field]] = list(N = item.df[[field]])
-            } else if(item.cols[field] == "character") {
-              item[[field]] = list(S = item.df[[field]])
-            }
-          }
-        }
-        dynamo.con$put_item(TableName = write.table, Item = item)
-      }
-    }
-  }
-}
-
 # If the user clicks "save", write the table to the database
 save.reference.table = function(reference.table, db.con, dynamo.con,
                                 reactive.reference.tables,
@@ -800,24 +786,29 @@ save.reference.table = function(reference.table, db.con, dynamo.con,
       # Iterate over changed rows
       changed.df = temp.df %>%
         filter(.data[[reference.info$key]] %in% reactive.reference.changes[[reference.table]]$edit)
+      all.changes.successful = T
       for(i in 1:nrow(changed.df)) {
         sql = changed.df[i,] %>%
           glue_data_sql(reference.info$update.sql, .con = db.con)
         tryCatch(
           {
+            showNotification("Writing WSF changes...")
             dbGetQuery(db.con, sql)
-            update.dynamo.item(db.con, dynamo.con, reference.info,
+            write.dynamo.items(db.con, dynamo.con, reference.info,
                                change.key = changed.df[i,reference.info$key])
             reactive.reference.changes[[reference.table]]$edit = c()
-            show.changes.saved(T,
-                               db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
-                                               sql))
           },
           error = function(err) {
+            all.changes.successful = F
             print(err)
             show.changes.saved(F, err.msg = err)
           }
         )
+      }
+      if(all.changes.successful) {
+        show.changes.saved(T,
+                           db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                           sql))
       }
       
     }
@@ -831,24 +822,29 @@ save.reference.table = function(reference.table, db.con, dynamo.con,
           filter(is.na(.data[[reference.info$key]])) %>%
           glue_data_sql(reference.info$insert.sql, .con = db.con)
         sql = gsub("NULL", "DEFAULT", sql)
+        all.changes.successful = T
         for(s in sql) {
           tryCatch(
             {
+              showNotification("Writing WSF changes...")
               dbGetQuery(db.con, s)
               new.id = dbGetQuery(db.con,
                                   "SELECT LAST_INSERT_ID() AS NEW_ID")$NEW_ID
-              update.dynamo.item(db.con, dynamo.con, reference.info,
+              write.dynamo.items(db.con, dynamo.con, reference.info,
                                  change.key = new.id)
               reactive.reference.changes[[reference.table]]$insert = F
-              show.changes.saved(T,
-                                 db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
-                                                 s))
             },
             error = function(err) {
+              all.changes.successful = F
               print(err)
               show.changes.saved(F, err.msg = err)
             }
           )
+        }
+        if(all.changes.successful) {
+          show.changes.saved(T,
+                             db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
+                             s))
         }
       }
       
@@ -860,56 +856,18 @@ save.reference.table = function(reference.table, db.con, dynamo.con,
   if(reactive.reference.changes[[reference.table]]$delete) {
     
     # If we're also deleting from a WSF table, get keys to be deleted
-    if("wsf.updates" %in% names(reference.info) &
-       "delete" %in% names(reference.info$wsf.updates)) {
-      delete.keys = map(
-        reference.info$wsf.updates$delete,
-        function(delete.keys) {
-          sql = paste("SELECT DISTINCT ",
-                      paste(delete.keys, collapse = ", "),
-                      " FROM ", reference.info$table, " WHERE (",
-                      paste(delete.keys, collapse = ", "),
-                      ") NOT IN (",
-                      paste(map(
-                        1:nrow(temp.df),
-                        function(i) {
-                          paste("(",
-                                paste(temp.df[i,delete.keys], collapse = ", "),
-                                ")", sep = "")
-                        }
-                      ), collapse = ", "),
-                      ")", sep = "")
-          dbGetQuery(db.con, sql)
-        }
-      )
-    }
+    delete.keys = get.dynamo.delete.keys(db.con, reference.info, temp.df)
     
     # Create sql to delete rows
     sql = glue_sql(reference.info$delete.sql,
-                   keys = temp.df[[reference.info$key]], .con = db.con)
+                   keys = c(-1, temp.df[[reference.info$key]]), .con = db.con)
     
     # Attempt to delete rows
     tryCatch(
       {
+        showNotification("Writing WSF changes...")
         dbGetQuery(db.con, sql)
-        if("wsf.updates" %in% names(reference.info) &
-           "delete" %in% names(reference.info$wsf.updates)) {
-          for(delete.table in names(delete.keys)) {
-            delete.df = delete.keys[[delete.table]]
-            item.cols = sapply(delete.df, class)
-            for(i in 1:nrow(delete.df)) {
-              key = list()
-              for(field in names(item.cols)) {
-                if(item.cols[field] == "integer") {
-                  key[[field]] = list(N = delete.df[i,field])
-                } else if(item.cols[field] == "character") {
-                  key[[field]] = list(S = delete.df[i,field])
-                }
-              }
-              dynamo.con$delete_item(Key = key, TableName = delete.table)
-            }
-          }
-        }
+        delete.dynamo.items(dynamo.con, reference.info, delete.keys)
         reactive.reference.changes[[reference.table]]$delete = F
         show.changes.saved(T,
                            db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",

@@ -189,7 +189,12 @@ WITH keysignatures_concat AS
 	  GROUP BY songinstances.SongInstanceID)
 SELECT songinstances.SongInstanceID,
        CONCAT('<b>', songinstances.SongInstance, ' (',
-              songinstances.SongInstanceID, ')</b>\n',
+              songinstances.SongInstanceID, ')</b>',
+              CASE WHEN keysignatures_concat.KeySignatures IS NULL
+                        AND timesignatures_concat.TimeSignatures IS NULL
+                        THEN ''
+                   ELSE '\n'
+              END,
               IFNULL(keysignatures_concat.KeySignatures, ''),
 			  CASE WHEN keysignatures_concat.KeySignatures IS NOT NULL
                         AND timesignatures_concat.TimeSignatures IS NOT NULL
@@ -197,7 +202,13 @@ SELECT songinstances.SongInstanceID,
 				   ELSE ''
 			  END,
               IFNULL(timesignatures_concat.TimeSignatures, ''),
-              '\n', IFNULL(arrangements.ArrangementName, '')) AS SongInstanceLabel
+              CASE WHEN keysignatures_concat.KeySignatures IS NOT NULL
+                        AND timesignatures_concat.TimeSignatures IS NOT NULL
+                        AND arrangements.ArrangementName IS NOT NULL
+                        THEN '\n'
+                   ELSE ''
+              END,
+              IFNULL(arrangements.ArrangementName, '')) AS SongInstanceLabel
 FROM wsdb.songinstances
      LEFT JOIN keysignatures_concat
      ON songinstances.SongInstanceID = keysignatures_concat.SongInstanceID

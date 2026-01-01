@@ -97,7 +97,7 @@ selector.songbook.sql = "SELECT SongbookID, SongbookLabel AS SelectorDisplay
 
 # Songbook volumes
 selector.songbook.volume.sql = "SELECT -1 AS SongbookVolumeID,
-                                       ' ' AS SelectorDisplay
+                                       '[none]' AS SelectorDisplay
                                 FROM dual
                                 UNION ALL
                                 SELECT SongbookVolumeID,

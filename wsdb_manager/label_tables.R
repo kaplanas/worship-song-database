@@ -136,7 +136,8 @@ populate.label.table = function(label.table, db.con,
     label.sql = label.table.sql[[label.table]]
     tryCatch(
       {
-        return(dbGetQuery(db.con, label.sql))
+        lt = dbGetQuery(db.con, label.sql)
+        return(lt)
       },
       error = function(err) {
         print(err)

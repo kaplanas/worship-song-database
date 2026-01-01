@@ -18,6 +18,7 @@ alt.by.song.info = list(
     stringsAsFactors = F
   ),
   key = "AlternativeTuneID",
+  wsf.updates = source("wsf_updates/alternativetunes.R")$value,
   suggest.sql = "SELECT CAST(NULL AS SIGNED) AS AlternativeTuneID,
                         tune_song_labels.TuneLabel,
                         CONCAT(CASE WHEN tune_song_labels.TuneLabel NOT IN
@@ -153,6 +154,7 @@ alt.by.metrical.psalm.info = list(
     stringsAsFactors = F
   ),
   key = "AlternativeTuneID",
+  wsf.updates = source("wsf_updates/alternativetunes.R")$value,
   suggest.sql = "SELECT CAST(NULL AS SIGNED) AS AlternativeTuneID,
                         tune_song_labels.TuneLabel,
                         CONCAT(CASE WHEN tune_song_labels.TuneLabel NOT IN
@@ -266,6 +268,7 @@ alt.by.tune.info = list(
     stringsAsFactors = F
   ),
   key = "AlternativeTuneID",
+  wsf.updates = source("wsf_updates/alternativetunes.R")$value,
   suggest.sql = "SELECT CAST(NULL AS SIGNED) AS AlternativeTuneID,
                         song_labels.SongLabel,
                         metricalpsalm_labels.MetricalPsalmLabel,
@@ -620,7 +623,8 @@ suggest.alternative.tunes = function(alt.table, db.con, alt.by.song.id,
 }
 
 # If the user clicks "save", write the table to the database
-save.alternative.tunes.table = function(alt.table, db.con, reactive.alt.tables,
+save.alternative.tunes.table = function(alt.table, db.con, dynamo.con,
+                                        reactive.alt.tables,
                                         reactive.label.tables,
                                         reactive.alt.changes, alt.by.song.id,
                                         alt.by.metrical.psalm.id,
@@ -657,19 +661,23 @@ save.alternative.tunes.table = function(alt.table, db.con, reactive.alt.tables,
   if(length(reactive.alt.changes[[alt.table]]$edit) > 0) {
     
     # Create sql to update changed rows
-    sql = temp.df %>%
-      filter(.data[[alt.info$key]] %in% reactive.alt.changes[[alt.table]]$edit) %>%
+    update.df = temp.df %>%
+      filter(.data[[alt.info$key]] %in% reactive.alt.changes[[alt.table]]$edit)
+    sql = update.df %>%
       glue_data_sql(alt.info$update.sql, .con = db.con)
     
     # Attempt to update changed rows
-    for(s in sql) {
+    for(i in 1:length(sql)) {
       tryCatch(
         {
-          dbGetQuery(db.con, s)
+          dbGetQuery(db.con, sql[i])
+          showNotification("Writing changes...")
+          write.dynamo.items(db.con, dynamo.con, alt.info,
+                             change.key = update.df[i,alt.info$key])
           reactive.alt.changes[[alt.table]]$edit = c()
           show.changes.saved(T,
                              db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
-                                             s))
+                                             sql[i]))
         },
         error = function(err) {
           print(err)
@@ -693,6 +701,11 @@ save.alternative.tunes.table = function(alt.table, db.con, reactive.alt.tables,
         tryCatch(
           {
             dbGetQuery(db.con, s)
+            new.id = dbGetQuery(db.con,
+                                "SELECT LAST_INSERT_ID() AS NEW_ID")$NEW_ID
+            showNotification("Writing changes...")
+            write.dynamo.items(db.con, dynamo.con, alt.info,
+                               change.key = new.id)
             reactive.alt.changes[[alt.table]]$insert = F
             show.changes.saved(T,
                                db.table = gsub("^.*(wsdb\\.[a-z_]+).*$", "\\1",
@@ -711,6 +724,31 @@ save.alternative.tunes.table = function(alt.table, db.con, reactive.alt.tables,
   # If there were deletions, issue a DELETE statement
   if(reactive.alt.changes[[alt.table]]$delete) {
     
+    # If we're also deleting from a WSF table, get keys to be deleted
+    if(alt.table == "alt.by.song") {
+      sql = "SELECT AlternativeTuneID
+             FROM wsdb.alternativetunes
+             WHERE SongID = {alt.by.song.id}
+                   AND AlternativeTuneID NOT IN ({keys*})"
+      sql = glue_sql(sql, alt.by.song.id = alt.by.song.id,
+                     keys = c(-1, temp.df$AlternativeTuneID), .con = db.con)
+    } else if(alt.table == "alt.by.metrical.psalm") {
+      sql = "SELECT AlternativeTuneID
+             FROM wsdb.alternativetunes
+             WHERE MetricalPsalmID = {alt.by.metrical.psalm.id}
+                   AND AlternativeTuneID NOT IN ({keys*})"
+      sql = glue_sql(sql, alt.by.metrical.psalm.id = alt.by.metrical.psalm.id,
+                     keys = c(-1, temp.df$AlternativeTuneID), .con = db.con)
+    } else if(alt.table == "alt.by.tune") {
+      sql = "SELECT AlternativeTuneID
+             FROM wsdb.alternativetunes
+             WHERE TuneID = {alt.by.tune.id}
+                   AND AlternativeTuneID NOT IN ({keys*})"
+      sql = glue_sql(sql, alt.by.tune.id = alt.by.tune.id,
+                     keys = c(-1, temp.df$AlternativeTuneID), .con = db.con)
+    }
+    delete.keys = dbGetQuery(db.con, sql)
+
     # Create sql to delete rows
     sql = glue_sql(alt.info$delete.sql, keys = temp.df$AlternativeTuneID,
                    .con = db.con)
@@ -718,6 +756,8 @@ save.alternative.tunes.table = function(alt.table, db.con, reactive.alt.tables,
     # Attempt to delete rows
     tryCatch(
       {
+        delete.dynamo.multi.items(db.con, dynamo.con, alt.info,
+                                  delete.keys$AlternativeTuneID)
         dbGetQuery(db.con, sql)
         reactive.alt.changes[[alt.table]]$delete = F
         show.changes.saved(T,
