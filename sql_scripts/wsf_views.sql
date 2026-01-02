@@ -1035,14 +1035,14 @@ WITH RECURSIVE
                           ORDER BY psalmsongs_lyrics.LanguageID,
                                    psalmsongs_lyrics.LyricsOrder
                           SEPARATOR '<br/>') AS FirstLines
-      FROM psalmsongs_lyrics
+      FROM wsf.psalmsongs_lyrics
       GROUP BY psalmsongs_lyrics.PsalmSongID),
      laterfirstlines AS
      (SELECT psalmsongs_lyrics.PsalmSongID,
              GROUP_CONCAT(CONCAT('<i>', psalmsongs_lyrics.FirstLine, '</i>')
                           ORDER BY psalmsongs_lyrics.LyricsOrder
                           SEPARATOR '<br/>') AS LaterFirstLines
-      FROM psalmsongs_lyrics
+      FROM wsf.psalmsongs_lyrics
       WHERE psalmsongs_lyrics.LyricsOrder > 1
       GROUP BY psalmsongs_lyrics.PsalmSongID),
      songinstances AS
