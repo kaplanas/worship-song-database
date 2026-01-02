@@ -1,0 +1,21 @@
+<p>The title and artist filters are <em>not</em> case-sensitive.</p>
+<p>The title filter searches the titles of all song instances.  There are three options:</p>
+<ul>
+  <li><b>Match parts</b> splits your input into parts (by spaces) and searches for titles that have <em>all</em> of the parts.  The parts don't have to be whole words, and they can occur in any order.</li>
+  <ul>
+    <li>"All" matches any title that has the word <i>all</i>, but also words like <i>c<u>all</u></i>, <i>v<u>all</u>ey</i>, and <i>h<u>all</u>elujah</i>.</li>
+    <li>"Love my" matches "I <u>Love</u> <u>My</u> Savior, Too", "<u>My</u> Jesus, I <u>Love</u> Thee", "Jesus, <u>Love</u>r of <u>My</u> Soul", etc.</li>
+  </ul>
+  <li><b>Match words</b> is the same as "Match parts", except that the pieces in your input have to match whole words.  A punctuation mark counts as a word boundary.</li>
+  <ul>
+    <li>"Go" matches "<u>Go</u> Tell It on the Mountain", "You Never Let <u>Go</u>", "<u>Go</u>, Labor On", "Where Could I <u>Go</u>?", etc.</li>
+    <li>"Go" does <em>not</em> match words like <i>going</i>, <i>gone</i>, <i>God</i>, or <i>amigo</i>.</li>
+  </ul>
+  <li><b>Match string</b> searches for the exact string you entered.</li>
+  <ul>
+    <li>"To me" matches "Good <u>to Me</u>", "Come un<u>to Me</u>", "Cris<u>to Me</u> Ayuda por Él a Vivir", "Prepare <u>to Me</u>et Thy God", etc.</li>
+    <li>"Love m" matches "I <u>Love M</u>y Jesus", "<u>Love M</u>ade Me Free", "Why Should He <u>Love M</u>e So?", etc.</li>
+  </ul>
+</ul>
+<p>The artist filter treats your input in the same way as "Match parts" in the title filter.  You can specify whether you want to search for the author of the lyrics, the composer of the music, the arranger, or any one of the three.</p>
+<p>The tune name filter works like the title filter; it applies to the name of the tune (e.g., NETTLETON for "Come, Thou Fount of Every Blessing").  Tune names are printed in all caps, but matching is not case-sensitive.</p>

@@ -1,0 +1,142 @@
+.nav-pills {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+.col-sm-6 {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+.col-sm-7 {
+  height: 80vh;
+  overflow-y: auto;
+}
+
+.col-sm-8 {
+  height: 85vh;
+  overflow-y: auto;
+}
+
+.alignleft {
+  float: left;
+}
+
+.alignright {
+  float: right;
+}
+
+.nav-pills>li.psalmsongtype0>a {
+  background-color: rgba(77, 175, 74, 0.2);
+  color: black;
+}
+.nav-pills>li.psalmsongtype0.active>a {
+  background-color: rgba(77, 175, 74, 0.6);
+}
+.nav-pills>li.psalmsongtype1>a {
+  background-color: rgba(55, 126, 184, 0.2);
+  color: black;
+}
+.nav-pills>li.psalmsongtype1.active>a {
+  background-color: rgba(55, 126, 184, 0.7);
+}
+.nav-pills>li.psalmsongtype2>a {
+  background-color: rgba(152, 78, 163, 0.2);
+  color: black;
+}
+.nav-pills>li.psalmsongtype2.active>a {
+  background-color: rgba(152, 78, 163, 0.7);
+}
+.nav-pills>li.psalmsongtype3>a {
+  background-color: rgba(120, 120, 120, 0.2);
+  color: black;
+}
+.nav-pills>li.psalmsongtype3.active>a {
+  background-color: rgba(120, 120, 120, 1);
+}
+
+div {
+  counter-reset: verse;
+}
+
+.lyrics-verse:before {
+  content: "Verse " counter(verse) ":\A";
+  font-weight: bold;
+  counter-increment: verse;
+  white-space: pre;
+}
+.lyrics-refrain:before {
+  content: "Chorus:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-intro:before {
+  content: "Intro:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-prerefrain:before {
+  content: "Pre-chorus:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-descant:before {
+  content: "Descant:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-alto:before {
+  content: "Alto:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-tenor:before {
+  content: "Tenor:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-ground:before {
+  content: "Ground:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-bridge:before {
+  content: "Bridge:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-men:before {
+  content: "Men:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-ending:before {
+  content: "Ending:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-bass:before {
+  content: "Bass:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-coda:before {
+  content: "Coda:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-alto1:before {
+  content: "Alto 1:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-soprano:before {
+  content: "Soprano:\A";
+  font-weight: bold;
+  white-space: pre;
+}
+.lyrics-alto2:before {
+  content: "Alto 2:\A";
+  font-weight: bold;
+  white-space: pre;
+}
