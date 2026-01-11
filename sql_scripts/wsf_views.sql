@@ -87,7 +87,7 @@ WITH RECURSIVE
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        arrangements_artists.ArtistID,
-       'arranger' AS Role,
+       'arranger' AS ArtistRole,
        CONCAT(songinstances.SongInstanceID, '-arranger') AS SongInstanceIDRole
 FROM wsdb.songinstances
      JOIN wsdb.arrangements_artists
@@ -96,7 +96,7 @@ UNION ALL
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        tunes_artists.ArtistID,
-       'composer' AS Role,
+       'composer' AS ArtistRole,
        CONCAT(songinstances.SongInstanceID, '-composer') AS SongInstanceIDRole
 FROM wsdb.songinstances
      JOIN wsdb.songinstances_tunes
@@ -107,7 +107,7 @@ UNION ALL
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        lyrics_artists.ArtistID,
-       'lyricist' AS Role,
+       'lyricist' AS ArtistRole,
        CONCAT(songinstances.SongInstanceID, '-lyricist') AS SongInstanceIDRole
 FROM wsdb.songinstances
      JOIN wsdb.songinstances_lyrics
@@ -118,7 +118,7 @@ UNION ALL
 SELECT DISTINCT songinstances.SongInstanceID,
        songinstances.SongID,
        lyrics_artists.ArtistID,
-       'lyricist' AS Role,
+       'lyricist' AS ArtistRole,
        CONCAT(songinstances.SongInstanceID, '-lyricist') AS SongInstanceIDRole
 FROM translations
      JOIN wsdb.songinstances_lyrics
@@ -131,12 +131,8 @@ FROM translations
 -- Table of artists
 CREATE OR REPLACE VIEW wsf.artists AS
 SELECT DISTINCT artists.ArtistID,
-       artists.LastName,
-       artists.FirstName,
-       CONCAT(CASE WHEN artists.FirstName IS NULL THEN ''
-                   ELSE CONCAT(artists.FirstName, ' ')
-              END,
-              artists.LastName) AS ArtistName
+       LOWER(CONCAT(artists.FirstName, ' ',
+                    artists.LastName)) AS ArtistNameLower
 FROM wsdb.artists
      JOIN wsf.songinstances_artists
      ON artists.ArtistID = songinstances_artists.ArtistID;
@@ -153,11 +149,11 @@ FROM wsdb.songinstances
 -- Table of tunes
 CREATE OR REPLACE VIEW wsf.tunes AS
 SELECT DISTINCT tunes.TuneID,
-       tunes.TuneName,
-       tunes.RealTuneName
+       LOWER(tunes.TuneName) AS TuneNameLower
 FROM wsdb.tunes
      JOIN wsf.songinstances_tunes
-     ON tunes.TuneID = songinstances_tunes.TuneID;
+     ON tunes.TuneID = songinstances_tunes.TuneID
+WHERE tunes.RealTuneName;
 
 -- Table that connects song instances and key signatures
 CREATE OR REPLACE VIEW wsf.songinstances_keysignatures AS
@@ -237,22 +233,18 @@ FROM wsdb.songinstances
 -- Table of meters
 CREATE OR REPLACE VIEW wsf.meters AS
 SELECT DISTINCT meters.MeterID,
-       meters.Meter,
-       meters.Multiplier,
        CONCAT(meters.Meter,
               CASE WHEN meters.Multiplier IS NULL THEN ''
                    ELSE CONCAT(' ', meters.Multiplier)
               END) AS MeterString,
-       meters.SortString,
-       total_songs.TotalSongs
+       CONCAT(meters.SortString, '-',
+              COALESCE(meters.Multiplier, '')) AS SortString
 FROM wsdb.meters
-     JOIN (SELECT songinstances_meters.MeterID,
-                  COUNT(DISTINCT songinstances.SongID) AS TotalSongs
-           FROM wsf.songinstances_meters
-                JOIN wsdb.songinstances
-                ON songinstances_meters.SongInstanceID = songinstances.SongInstanceID
-           GROUP BY songinstances_meters.MeterID) total_songs
-     ON meters.MeterID = total_songs.MeterID;
+WHERE MeterID IN
+      (SELECT songinstances_meters.MeterID
+       FROM wsf.songinstances_meters
+       GROUP BY songinstances_meters.MeterID
+       HAVING COUNT(DISTINCT songinstances_meters.SongID) >= 5);
 
 -- Table that connects song instances and scripture references
 CREATE OR REPLACE VIEW wsf.songinstances_scripturereferences AS
@@ -275,14 +267,10 @@ FROM wsdb.booksofthebible;
 -- Table of scripture references
 CREATE OR REPLACE VIEW wsf.scripturereferences AS
 SELECT DISTINCT scripturereferences.ScriptureReferenceID,
-       booksofthebible.BookID,
-       booksofthebible.BookName,
-       booksofthebible.BookAbbreviation,
+       scripturereferences.BookID,
        scripturereferences.Chapter,
        scripturereferences.Verse
 FROM wsdb.scripturereferences
-     JOIN wsdb.booksofthebible
-     ON scripturereferences.BookID = booksofthebible.BookID
      JOIN wsf.songinstances_scripturereferences
      ON scripturereferences.ScriptureReferenceID = songinstances_scripturereferences.ScriptureReferenceID;
 
@@ -353,11 +341,16 @@ CREATE OR REPLACE VIEW wsf.songinstances AS
 WITH RECURSIVE
      lyrics_artists AS
      (SELECT lyrics_artists.LyricsID,
-             GROUP_CONCAT(DISTINCT artists.ArtistName
+             GROUP_CONCAT(DISTINCT CONCAT(CASE WHEN artists.FirstName IS NULL
+                                                    THEN ''
+                                               ELSE CONCAT(artists.FirstName,
+                                                           ' ')
+                                          END,
+                                          artists.LastName)
                           ORDER BY artists.LastName, artists.FirstName
                           SEPARATOR ', ') AS Artists
       FROM wsdb.lyrics_artists
-           JOIN wsf.artists
+           JOIN wsdb.artists
            ON lyrics_artists.ArtistID = artists.ArtistID
       GROUP BY lyrics_artists.LyricsID),
      translations AS
@@ -433,13 +426,18 @@ WITH RECURSIVE
       GROUP BY songinstances_lyrics.SongInstanceID),
      composers AS
      (SELECT songinstances_artists.SongInstanceID,
-             GROUP_CONCAT(DISTINCT artists.ArtistName
+             GROUP_CONCAT(DISTINCT CONCAT(CASE WHEN artists.FirstName IS NULL
+                                                    THEN ''
+                                               ELSE CONCAT(artists.FirstName,
+                                                           ' ')
+                                          END,
+                                          artists.LastName)
                           ORDER BY artists.LastName, artists.FirstName
                           SEPARATOR ', ') AS Composers
       FROM wsf.songinstances_artists
-           JOIN wsf.artists
+           JOIN wsdb.artists
            ON songinstances_artists.ArtistID = artists.ArtistID
-      WHERE songinstances_artists.Role = 'composer'
+      WHERE songinstances_artists.ArtistRole = 'composer'
       GROUP BY songinstances_artists.SongInstanceID),
      tunes_copyright AS
      (SELECT tunes.TuneID,
@@ -485,13 +483,18 @@ WITH RECURSIVE
       GROUP BY songinstances_tunes.SongInstanceID),
      arrangers AS
      (SELECT songinstances_artists.SongInstanceID,
-             GROUP_CONCAT(DISTINCT artists.ArtistName
+             GROUP_CONCAT(DISTINCT CONCAT(CASE WHEN artists.FirstName IS NULL
+                                                    THEN ''
+                                               ELSE CONCAT(artists.FirstName,
+                                                           ' ')
+                                          END,
+                                          artists.LastName)
                           ORDER BY artists.LastName, artists.FirstName
                           SEPARATOR ', ') AS Arrangers
       FROM wsf.songinstances_artists
-           JOIN wsf.artists
+           JOIN wsdb.artists
            ON songinstances_artists.ArtistID = artists.ArtistID
-      WHERE songinstances_artists.Role = 'arranger'
+      WHERE songinstances_artists.ArtistRole = 'arranger'
       GROUP BY songinstances_artists.SongInstanceID),
      arrangements_copyright AS
      (SELECT arrangements.ArrangementID,
@@ -566,7 +569,7 @@ WITH RECURSIVE
      ordered_refs AS
      (SELECT songinstances_scripturereferences.SongInstanceID,
              scripturereferences.BookID,
-             scripturereferences.BookAbbreviation,
+             bible_books.BookAbbreviation,
              scripturereferences.Chapter,
              scripturereferences.Verse,
              CASE WHEN COALESCE(LAG(scripturereferences.Verse)
@@ -585,7 +588,9 @@ WITH RECURSIVE
              END AS LastInSeq
       FROM wsf.songinstances_scripturereferences
            JOIN wsf.scripturereferences
-           ON songinstances_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID),
+           ON songinstances_scripturereferences.ScriptureReferenceID = scripturereferences.ScriptureReferenceID
+           JOIN wsf.bible_books
+           ON scripturereferences.BookID = bible_books.BookID),
      filled_refs AS
      (SELECT ordered_refs.SongInstanceID,
              ordered_refs.BookID,
@@ -781,12 +786,7 @@ WITH song_names AS
                               AND songs.SongDisambiguator IS NOT NULL
                               THEN CONCAT(' (', songs.SongDisambiguator, ')')
                          ELSE ''
-                    END) AS SongNameUnique,
-             CASE WHEN COUNT(*) OVER (PARTITION BY songs.SongName) > 1
-                       AND songs.SongDisambiguator IS NOT NULL
-                       THEN songs.SongDisambiguator
-                  ELSE ''
-             END AS SongDisambiguator
+                    END) AS SongNameUnique
       FROM wsdb.songs),
      songinstance_names AS
      (SELECT songs.SongID,
@@ -799,34 +799,6 @@ WITH song_names AS
            ON songinstances.SongID = songs.SongID
       WHERE LOWER(songinstances.SongInstance) <> SUBSTRING(LOWER(songs.SongName), 1, LENGTH(songinstances.SongInstance))
       GROUP BY songs.SongID),
-     copyrighted_songinstances AS
-     (SELECT songinstances.SongInstanceID, songinstances.SongID,
-             CASE WHEN MAX(lyrics_copyrightholders.CopyrightHolderID) = 1
-                       THEN 'N' 
-                  ELSE 'Y'
-             END AS AnyCopyrighted
-      FROM wsdb.songinstances
-           JOIN wsdb.songinstances_lyrics
-           ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-           JOIN wsdb.lyrics_copyrightholders
-           ON songinstances_lyrics.LyricsID = lyrics_copyrightholders.LyricsID
-      GROUP BY songinstances.SongInstanceID, songinstances.SongID),
-     copyrighted_songs AS
-     (SELECT copyrighted_songinstances.SongID,
-             CASE WHEN MIN(copyrighted_songinstances.AnyCopyrighted) = 'N'
-                       THEN 'Y'
-                  ELSE 'N'
-             END AS AnyPublicDomain
-      FROM copyrighted_songinstances
-      GROUP BY copyrighted_songinstances.SongID),
-     songbook_entries AS
-     (SELECT songinstances_songbooks.SongID,
-             GROUP_CONCAT(DISTINCT songinstances_songbooks.EntryString
-                          ORDER BY songinstances_songbooks.SongbookName,
-                                   songinstances_songbooks.EntryNumber
-                          SEPARATOR ', ') AS SongbookEntries
-      FROM wsf.songinstances_songbooks
-      GROUP BY songinstances_songbooks.SongID),
      topics AS
      (SELECT songs_topics.SongID,
              GROUP_CONCAT(DISTINCT topics.TopicName
@@ -838,28 +810,15 @@ WITH song_names AS
       GROUP BY songs_topics.SongID)
 SELECT song_names.SongID,
        song_names.SongName,
-       song_names.SongDisambiguator,
-       song_names.SongNameUnique,
-       REGEXP_REPLACE(CONCAT(song_names.SongName, ' ',
-                             song_names.SongDisambiguator),
-                      '^[\'\"¡¿]', '') AS SongNameSort,
        CONCAT(song_names.SongNameUnique,
                CASE WHEN songinstance_names.OtherTitles IS NOT NULL
                          THEN CONCAT('<br/>', songinstance_names.OtherTitles)
                     ELSE ''
                END) AS PanelName,
-       CASE WHEN copyrighted_songs.AnyPublicDomain = 'Y' THEN 'N'
-            ELSE 'Y'
-       END AS Copyrighted,
-       songbook_entries.SongbookEntries,
        topics.Topics
 FROM song_names
      LEFT JOIN songinstance_names
      ON song_names.SongID = songinstance_names.SongID
-     LEFT JOIN copyrighted_songs
-     ON song_names.SongID = copyrighted_songs.SongID
-     LEFT JOIN songbook_entries
-     ON song_names.SongID = songbook_entries.SongID
      LEFT JOIN topics
      ON song_names.SongID = topics.SongID;
 
@@ -1012,14 +971,10 @@ FROM psalmsongs
      JOIN wsdb.tunes_copyrightholders
      ON tunes.TuneID = tunes_copyrightholders.TuneID
         AND tunes_copyrightholders.CopyrightHolderID = 1
-     LEFT JOIN wsf.songs
-     ON psalmsongs.SongID = songs.SongID
-        AND songs.Copyrighted = 'Y'
      LEFT JOIN one_canonical_song
      ON tunes.TuneID = one_canonical_song.TuneID
      LEFT JOIN wsdb.songs canonical_song
-     ON one_canonical_song.SongID = canonical_song.SongID
-WHERE songs.SongID IS NULL;
+     ON one_canonical_song.SongID = canonical_song.SongID;
 
 -- Table of psalm songs
 CREATE OR REPLACE VIEW wsf.psalmsongs AS
@@ -1071,11 +1026,16 @@ WITH RECURSIVE
       FROM wsf.songinstances),
      lyrics_artists AS
      (SELECT lyrics_artists.LyricsID,
-             GROUP_CONCAT(DISTINCT artists.ArtistName
+             GROUP_CONCAT(DISTINCT CONCAT(CASE WHEN artists.FirstName IS NULL
+                                                    THEN ''
+                                               ELSE CONCAT(artists.FirstName,
+                                                           ' ')
+                                          END,
+                                          artists.LastName)
                           ORDER BY artists.LastName, artists.FirstName
                           SEPARATOR ', ') AS Artists
       FROM wsdb.lyrics_artists
-           JOIN wsf.artists
+           JOIN wsdb.artists
            ON lyrics_artists.ArtistID = artists.ArtistID
       GROUP BY lyrics_artists.LyricsID),
      translations AS
@@ -1195,6 +1155,14 @@ WITH RECURSIVE
       GROUP BY collapsed_refs.SongID,
                collapsed_refs.MetricalPsalmID,
                collapsed_refs.Chapter),
+     songbook_entries AS
+     (SELECT songinstances_songbooks.SongID,
+             GROUP_CONCAT(DISTINCT songinstances_songbooks.EntryString
+                          ORDER BY songinstances_songbooks.SongbookName,
+                                   songinstances_songbooks.EntryNumber
+                          SEPARATOR ', ') AS SongbookEntries
+      FROM wsf.songinstances_songbooks
+      GROUP BY songinstances_songbooks.SongID),
      ps AS
      (SELECT CONCAT('PS', psalmsongs.PsalmSongID) AS PsalmSongID,
              psalmsongs.PsalmNumber,
@@ -1208,8 +1176,8 @@ WITH RECURSIVE
              prettyscripturelists.PrettyScriptureList,
              songinstances.Artists,
              CONVERT(CONCAT('<br/><h3>', psalmsongtypes.PsalmSongType, '</h3>',
-                            CASE WHEN songs.SongbookEntries IS NOT NULL
-                                      THEN CONCAT('<p>', songs.SongbookEntries, '</p>')
+                            CASE WHEN songbook_entries.SongbookEntries IS NOT NULL
+                                      THEN CONCAT('<p>', songbook_entries.SongbookEntries, '</p>')
                                  ELSE ''
                             END,
                             '<p><b>Verses:</b> ',
@@ -1227,6 +1195,8 @@ WITH RECURSIVE
            ON psalmsongs.PsalmSongTypeID = psalmsongtypes.PsalmSongTypeID
            JOIN wsf.songs
            ON psalmsongs.SongID = songs.SongID
+           JOIN songbook_entries
+           ON psalmsongs.SongID = songbook_entries.SongID
            LEFT JOIN prettyscripturelists
            ON psalmsongs.SongID = prettyscripturelists.SongID
               AND psalmsongs.PsalmNumber = prettyscripturelists.Chapter
@@ -1308,15 +1278,9 @@ WITH RECURSIVE
       GROUP BY psalmsongs_alternativetunes.PsalmSongID)
 SELECT ps.PsalmSongID,
        ps.PsalmNumber,
-       ps.SongID,
-       ps.MetricalPsalmID,
-       ps.SongOrMetricalPsalmID,
        ps.PsalmSongTypeID,
-       ps.PsalmSongType,
-       ps.PsalmSongTitle,
        ps.PanelName,
-       ps.PrettyScriptureList,
-       ps.Artists,
+       ps.PsalmSongTitle,
        ps.HTMLInfo,
        CONCAT('<p></p>', alternativetunes.AlternativeTunes) AS HTMLAlternatives
 FROM ps

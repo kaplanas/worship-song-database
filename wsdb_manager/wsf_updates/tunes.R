@@ -17,7 +17,7 @@ list(
                    ON tunes_artists.TuneID = songinstances_tunes.TuneID
               WHERE tunes_artists.TuneID IN ({keys*}))",
     wsf_songinstances =
-      "SELECT *
+      "SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE SongInstanceID IN
              (SELECT songinstances_tunes.SongInstanceID
@@ -57,7 +57,16 @@ list(
                    (SELECT songinstances_tunes.SongInstanceID
                     FROM wsdb.songinstances_tunes
                     WHERE songinstances_tunes.TuneID IN ({keys*}))"
-    )
+    ),
+    wsf_meters =
+      "SELECT *
+       FROM wsf.meters
+       WHERE MeterID IN
+             (SELECT lyrics_meters.MeterID
+              FROM wsdb.lyrics_meters
+                   JOIN wsdb.songinstances_lyrics
+                   ON lyrics_meters.LyricsID = songinstances_lyrics.LyricsID
+              WHERE lyrics_meters.LyricsID IN ({keys*}))"
   ),
   delete = "wsf_tunes"
 )

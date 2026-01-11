@@ -33,7 +33,9 @@ get.dynamo.delete.keys = function(db.con, table.info, temp.df, exclude = T) {
   if("wsf.updates" %in% names(table.info) &
      "delete" %in% names(table.info$wsf.updates)) {
     key = table.info$key
-    sql = paste("SELECT DISTINCT ", key, " FROM ", table.info$table,
+    sql = paste("SELECT DISTINCT ", key,
+                ifelse(table.info$table == "songinstances", ", SongID", ""),
+                " FROM ", table.info$table,
                 " WHERE ", key, " ", ifelse(exclude, "NOT ", ""), "IN (",
                 paste(map(1:nrow(temp.df), function(i) { temp.df[i,key] }),
                       collapse = ", "),

@@ -54,7 +54,7 @@ list(
              FROM translations
                   JOIN wsdb.lyrics_translations
                   ON translations.TranslatedFromID = lyrics_translations.LyricsID)
-       SELECT *
+       SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE SongInstanceID IN
              (SELECT songinstances_lyrics.SongInstanceID

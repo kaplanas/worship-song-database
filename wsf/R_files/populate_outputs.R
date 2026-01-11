@@ -1,42 +1,73 @@
 #### Populate song search outputs ####
 
-# Populate the results list
+# Function that creates a panel for a specific song
+create.song.panel = function(sid) {
+  song.row = songs.df %>% filter(song.id ==  sid)
+  panel.title = tags$span(HTML(song.row$panel.name), display = "flex",
+                          justify = "space-between")
+  panel.content = list(h1(song.row$song.name))
+  if(!is.na(song.row$topics)) {
+    panel.content[[length(panel.content) + 1]] = song.row$topics
+  }
+  song.instances = song.instances.df %>%
+    filter(song.id == sid) %>%
+    arrange(desc(num.entries))
+  panel.content = c(panel.content, lapply(song.instances$HTML, HTML))
+  song.panel = tabPanel(title = panel.title, panel.content)
+  return(song.panel)
+}
+
+# Filter and sort the song list
 get.song.list.results = reactive({
   # Start with a list of all songs
   results.df = songs.df %>%
-    select(song.id, song.name)
+    select(song.id, panel.name)
   # Filter the songs
   source("R_files/filter_results.R", local = T)
   # Order the results
   results.df = inner_join(results.df, songs.df,
-                          by = c("song.id", "song.name")) %>%
-    arrange(song.name.sort)
+                          by = "song.id") %>%
+    arrange(gsub("^['\"¡¿]", "", song.name))
   # Return the results
   results.df
 })
+
+# Populate the results list
 output$songList = renderUI({
-  
-  # Create the list of results
   results.df = get.song.list.results()
   if(nrow(results.df) > 0 &
-     (input$songTitle != "" |
-      input$artistName != "" |
+     (nchar(input$songTitle) >= 3 |
+      nchar(input$artistName) >= 3 |
       length(input$topicChoices) > 0 |
-      input$scriptureBook != 0 |
+      (input$scriptureBook != 0 &
+       (input$scriptureOptions == "Single verse" |
+        as.numeric(input$scriptureVerseStart) <= as.numeric(input$scriptureVerseEnd))) |
       length(input$songbookChoices) > 0 |
       length(input$arrangementChoices) > 0 |
       length(input$languageChoices) > 0 |
       length(input$keyChoices) > 0 |
       length(input$timeChoices) > 0 |
       length(input$meterChoices) > 0 |
-      input$tuneName != "") |
-     length(input$requestChoices) > 0) {
-    song.panels =
-      lapply(1:nrow(results.df),
-             function(i) {
-               return(tabPanel(title = all.song.panel.titles[[as.character(results.df$song.id[i])]],
-                               all.song.panels[[as.character(results.df$song.id[i])]]))
-             })
+      nchar(input$tuneName) >= 3)) {
+    n.songs = nrow(results.df)
+    if(n.songs >= 50) {
+      withProgress(message = "Loading songs", value = 0, {
+        song.panels =
+          lapply(1:n.songs,
+                 function(i) {
+                   sp = create.song.panel(results.df$song.id[i])
+                   incProgress(1 / n.songs)
+                   return(sp)
+                 })
+      })
+    } else {
+      song.panels =
+        lapply(1:n.songs,
+               function(i) {
+                 sp = create.song.panel(results.df$song.id[i])
+                 return(sp)
+               })
+    }
     song.panels[["widths"]] = c(5, 7)
     song.panels[["well"]] = F
     song.panels[["id"]] = "songResultsPanel"
@@ -48,12 +79,14 @@ output$songList = renderUI({
 
 # Populate the results list
 get.psalm.song.list.results = reactive({
-  # Start with a list of all psalm songs
-  psalm.song.results.df = psalm.songs.df %>%
-    select(psalm.song.id, psalm.number, song.id, psalm.song.type.id,
-           psalm.song.title)
-  # Filter the songs
-  psalm.song.results.df = psalm.song.results.df %>%
+  # Get psalm songs for this psalm
+  psalm.song.results.df = dynamodb.items.to.df(wsf.db, "wsf_psalmsongs",
+                                               "PsalmNumber",
+                                               as.numeric(input$psalmNumber)) %>%
+    dplyr::select(psalm.song.id = PsalmSongID, psalm.number = PsalmNumber,
+                  psalm.song.title = PsalmSongTitle, panel.name = PanelName,
+                  psalm.song.type.id = PsalmSongTypeID, html.info = HTMLInfo,
+                  html.alternatives = HTMLAlternatives) %>%
     filter(psalm.number == input$psalmNumber)
   if(length(input$psalmSongType) > 0) {
     psalm.song.results.df = psalm.song.results.df %>%
@@ -71,8 +104,32 @@ output$psalmSongList = renderUI({
   psalm.song.panels =
     lapply(1:nrow(psalm.song.results.df),
            function(i) {
-             return(tabPanel(title = all.psalm.song.panel.titles[[as.character(psalm.song.results.df$psalm.song.id[i])]],
-                             all.psalm.song.panels[[as.character(psalm.song.results.df$psalm.song.id[i])]]))
+             main.title = h1(HTML(psalm.song.results.df$psalm.song.title[i]))
+             info.panels = list(tabPanel("Song info",
+                                         HTML(psalm.song.results.df$html.info[i])))
+             lyrics.df = dynamodb.items.to.df(wsf.db,
+                                              "wsf_psalmsongs_lyrics_tabs",
+                                              "PsalmSongID",
+                                              psalm.song.results.df$psalm.song.id[i])
+             if(nrow(lyrics.df) > 0) {
+               lyrics.df = lyrics.df %>%
+                 dplyr::select(lyrics.order = LyricsOrder,
+                               lyrics.html = LyricsHTML, tab.name = TabName) %>%
+                 arrange(lyrics.order)
+               for(j in 1:nrow(lyrics.df)) {
+                 info.panels[[length(info.panels) + 1]] =
+                   tabPanel(lyrics.df$tab.name[j], tags$p(),
+                            HTML(lyrics.df$lyrics.html[j]))
+               }
+             }
+             if(!is.na(psalm.song.results.df$html.alternatives[i])) {
+               info.panels[[length(info.panels) + 1]] =
+                 tabPanel("Alternative tunes",
+                          HTML(psalm.song.results.df$html.alternatives[i]))
+             }
+             return(tabPanel(title = HTML(psalm.song.results.df$panel.name[i]),
+                             list(main.title,
+                                  do.call(tabsetPanel, info.panels))))
            })
   psalm.song.panels[["widths"]] = c(5, 7)
   psalm.song.panels[["well"]] = F

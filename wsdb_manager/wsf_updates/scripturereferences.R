@@ -8,7 +8,7 @@ list(
               FROM wsf.songinstances_scripturereferences
               WHERE songinstances_scripturereferences.ScriptureReferenceID IN ({keys*}))",
     wsf_songinstances =
-      "SELECT *
+      "SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE SongInstanceID IN
              (SELECT songinstances_scripturereferences.SongInstanceID

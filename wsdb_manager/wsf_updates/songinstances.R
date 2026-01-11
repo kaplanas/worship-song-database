@@ -1,7 +1,7 @@
 list(
   write = list(
     wsf_songinstances =
-      "SELECT *
+      "SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE SongInstanceID IN ({keys*})",
     wsf_artists =

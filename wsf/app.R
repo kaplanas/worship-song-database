@@ -1,53 +1,21 @@
 library(shiny)
 library(shinyjs)
+library(tidyverse)
 library(shinyWidgets)
-library(RMySQL)
-library(tidyr)
-library(date)
-library(dplyr)
-library(ggplot2)
-library(stringr)
-library(stringi)
-library(gridExtra)
-library(magrittr)
-library(stringr)
-library(DT)
 library(RColorBrewer)
-library(tibble)
-library(xml2)
 library(paws)
-library(purrr)
-
-source("version.R", local = T)
-source("database_connection_local.R", local = T)
+library(aws.signature)
 
 #### Useful initial settings ####
 
-# Connect to the database
-wsf.shiny.con = dbConnect(MySQL(), user = db.user, password = db.password,
-                          dbname = ifelse(version == "ctcc", "wsf_ctcc",
-                                          "wsf"),
-                          host = db.host, port = 3306)
-on.exit(dbDisconnect(wsf.shiny.con), add = T)
-dbGetQuery(wsf.shiny.con, "SET NAMES utf8")
-Sys.setenv(AWS_PROFILE = "greek_shiny_server_test")
-wsf.db = dynamodb()
+use_credentials("wsf-shiny")
+wsf.db = dynamodb(endpoint = "dynamodb.us-west-2.api.aws")
 
 # Load stuff from the database
 source("R_files/load_from_database.R", local = T)
 
-# Settings for date inputs and outputs
-date.input.sep = " to "
-date.input.format = "MM d, yyyy"
-date.output.format = "%B %e, %Y"
-date.input.min = "2017-03-26"
-date.input.start = seq(Sys.Date(), length = 7, by = "-1 month")[7]
-
 # Create content panels
 source("R_files/create_panels.R", local = T)
-
-# Plotting theme
-theme_set(theme_bw())
 
 #### UI ####
 
@@ -60,6 +28,8 @@ search.page = tabPanel("Search for songs",
                          # The filters
                          sidebarPanel(
                            navlistPanel(
+                             header = list(tags$b("Large result lists may take a while to render"),
+                                           tags$br(), tags$br()),
                              song.title.filter,
                              artist.name.filter,
                              topic.filter,
@@ -170,48 +140,49 @@ ui <- navbarPage(
 # Define server logic
 server <- function(input, output, session) {
 
+  # List of scripture references for the selected book
+  scripture.references.df = reactiveVal(NULL)
+  observe({
+    if(input$scriptureBook != 0 & !is.null(input$scriptureBook)) {
+      scripture.references.df(
+        dynamodb.items.to.df(wsf.db, "wsf_scripturereferences", "BookID",
+                             c(as.numeric(input$scriptureBook))) %>%
+          dplyr::select(scripture.reference.id = ScriptureReferenceID,
+                        book.id = BookID, chapter = Chapter, verse = Verse)
+      )
+    }
+  })
+
   # Populate the scripture filter based on the selected options
   includeScriptureEnd = reactive({
     ifelse(input$scriptureOptions == "Range", T, F)
   })
   observe({
     if(includeScriptureEnd()) {
-      updateSelectInput(session, "scriptureChapterStart",
-                        label = "Starting chapter:")
       updateSelectInput(session, "scriptureVerseStart",
                         label = "Starting verse:")
-      shinyjs::show(id = "scriptureChapterEnd")
       shinyjs::show(id = "scriptureVerseEnd")
     }
     else {
-      shinyjs::hide(id = "scriptureChapterEnd")
       shinyjs::hide(id = "scriptureVerseEnd")
-      updateSelectInput(session, "scriptureChapterStart",
-                        label = "Chapter:")
-      updateSelectInput(session, "scriptureVerseStart",
-                        label = "Verse:")
+      updateSelectInput(session, "scriptureVerseStart", label = "Verse:")
     }
   })
   dynamicChapters = reactive({
-    sort(unique(scripture.references.df$chapter[scripture.references.df$book.id == input$scriptureBook]))
+    sort(unique(scripture.references.df()$chapter))
   })
   observe({
-    updateSelectInput(session, "scriptureChapterStart",
-                      choices = dynamicChapters())
-    updateSelectInput(session, "scriptureChapterEnd",
-                      choices = dynamicChapters())
+    updateSelectInput(session, "scriptureChapter", choices = dynamicChapters())
   })
   dynamicVersesStart = reactive({
-    sort(unique(scripture.references.df$verse[scripture.references.df$book.id == input$scriptureBook &
-                                                scripture.references.df$chapter == input$scriptureChapterStart]))
+    sort(unique(scripture.references.df()$verse[scripture.references.df()$chapter == input$scriptureChapter]))
   })
   observe({
     updateSelectInput(session, "scriptureVerseStart",
                       choices = dynamicVersesStart())
   })
   dynamicVersesEnd = reactive({
-    sort(unique(scripture.references.df$verse[scripture.references.df$book.id == input$scriptureBook &
-                                              scripture.references.df$chapter == input$scriptureChapterEnd]))
+    sort(unique(scripture.references.df()$verse[scripture.references.df()$chapter == input$scriptureChapter]))
   })
   observe({
     updateSelectInput(session, "scriptureVerseEnd",

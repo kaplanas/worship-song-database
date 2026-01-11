@@ -9,6 +9,7 @@ db = dynamodb(endpoint = "dynamodb.us-west-2.api.aws")
 wsdb.con = dbConnect(MySQL(), user = "root", password = Sys.getenv("WSDB_PWD"),
                      host = Sys.getenv("WSDB_HOST"), port = 3306,
                      dbname = "wsf")
+dbSendQuery(wsdb.con, "SET SESSION group_concat_max_len = 1000000")
 
 # Function that writes to DynamoDB.
 write.to.dynamodb = function(df, n.fields, s.fields, b.fields, table.name) {
@@ -69,7 +70,7 @@ song.instances.artists.df = dbGetQuery(wsdb.con,
                                        "SELECT * FROM wsf.songinstances_artists")
 write.to.dynamodb(song.instances.artists.df,
                   c("SongInstanceID", "SongID", "ArtistID"),
-                  c("Role", "SongInstanceIDRole"),
+                  c("ArtistRole", "SongInstanceIDRole"),
                   c(),
                   "wsf_songinstances_artists")
 
@@ -77,7 +78,7 @@ write.to.dynamodb(song.instances.artists.df,
 artists.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.artists")
 write.to.dynamodb(artists.df,
                   c("ArtistID"),
-                  c("LastName", "FirstName"),
+                  c("ArtistNameLower"),
                   c(),
                   "wsf_artists")
 
@@ -93,8 +94,8 @@ write.to.dynamodb(song.instances.tunes.df,
 tunes.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.tunes")
 write.to.dynamodb(tunes.df,
                   c("TuneID"),
-                  c("TuneName"),
-                  c("RealTuneName"),
+                  c("TuneNameLower"),
+                  c(),
                   "wsf_tunes")
 
 # Table that connects song instances and key signatures.
@@ -110,7 +111,7 @@ write.to.dynamodb(song.instances.key.signatures.df,
 key.signatures.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.keysignatures")
 write.to.dynamodb(key.signatures.df,
                   c("KeySignatureID", "AccidentalID", "ModeID"),
-                  c("PitchName", "AccidentalSymbol", "ModeName",
+                  #c("PitchName", "AccidentalSymbol", "ModeName",
                     "KeySignatureString"),
                   c(),
                   "wsf_keysignatures")
@@ -144,10 +145,10 @@ write.to.dynamodb(song.instances.meters.df,
                   "wsf_songinstances_meters")
 
 # Table of meters.
-#meters.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.meters")
+meters.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.meters")
 write.to.dynamodb(meters.df,
-                  c("MeterID", "TotalSongs"),
-                  c("Meter", "SortString", "Multiplier", "MeterString"),
+                  c("MeterID"),
+                  c("SortString", "MeterString"),
                   c(),
                   "wsf_meters")
 
@@ -173,7 +174,7 @@ scripture.references.df = dbGetQuery(wsdb.con,
                                      "SELECT * FROM wsf.scripturereferences")
 write.to.dynamodb(scripture.references.df,
                   c("ScriptureReferenceID", "BookID", "Chapter", "Verse"),
-                  c("BookName", "BookAbbreviation"),
+                  c(),
                   c(),
                   "wsf_scripturereferences")
 
@@ -224,9 +225,8 @@ write.to.dynamodb(lyrics.first.lines.df,
 # Table of song instances.
 song.instances.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.songinstances")
 write.to.dynamodb(song.instances.df,
-                  c("SongInstanceID", "SongID", "LastLyricsYear",
-                    "LastTuneYear", "NumEntries"),
-                  c("SongInstance", "HTML"),
+                  c("SongInstanceID", "SongID", "NumEntries"),
+                  c("HTML"),
                   c(),
                   "wsf_songinstances")
 
@@ -250,9 +250,7 @@ write.to.dynamodb(topics.df,
 songs.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.songs")
 write.to.dynamodb(songs.df,
                   c("SongID"),
-                  c("SongName", "SongDisambiguator", "SongNameUnique",
-                    "SongNameSort", "PanelName", "Copyrighted",
-                    "SongbookEntries", "Topics"),
+                  c("SongName", "PanelName", "Topics"),
                   c(),
                   "wsf_songs")
 
@@ -261,7 +259,7 @@ psalmsongs.lyrics.tabs.df = dbGetQuery(wsdb.con,
                                        "SELECT * FROM wsf.psalmsongs_lyrics_tabs")
 write.to.dynamodb(psalmsongs.lyrics.tabs.df,
                   c("LyricsOrder"),
-                  c("PsalmSongID", "LyricsHTML"),
+                  c("PsalmSongID", "TabName", "LyricsHTML"),
                   c(),
                   "wsf_psalmsongs_lyrics_tabs")
 
@@ -273,22 +271,11 @@ write.to.dynamodb(psalmsongtypes.df,
                   c(),
                   "wsf_psalmsongtypes")
 
-# Table that connects psalm songs and alternative tunes.
-psalmsongs.alternativetunes.df = dbGetQuery(wsdb.con,
-                                            "SELECT * FROM wsf.psalmsongs_alternativetunes")
-write.to.dynamodb(psalmsongs.alternativetunes.df,
-                  c("AlternativeTuneID", "TuneID"),
-                  c("PsalmSongID", "Notes"),
-                  c(),
-                  "wsf_psalmsongs_alternativetunes")
-
 # Table of psalm songs.
 psalmsongs.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.psalmsongs")
 write.to.dynamodb(psalmsongs.df,
-                  c("PsalmNumber", "SongID", "MetricalPsalmID",
-                    "PsalmSongTypeID"),
-                  c("PsalmSongID", "SongOrMetricalPsalmID", "PsalmSongType",
-                    "PsalmSongTitle", "PanelName", "PrettyScriptureList",
-                    "Artists", "HTMLInfo", "HTMLAlternatives"),
+                  c("PsalmNumber", "PsalmSongTypeID"),
+                  c("PsalmSongID", "PanelName", "PsalmSongTitle", "HTMLInfo",
+                    "HTMLAlternatives"),
                   c(),
                   "wsf_psalmsongs")

@@ -10,7 +10,7 @@ list(
                    ON songinstances_arrangementtypes.SongInstanceID = songinstances.SongInstanceID
               WHERE songinstances.ArrangementID IN ({keys*}))",
     wsf_songinstances =
-      "SELECT *
+      "SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE ArrangementID IN ({keys*})"
   ),

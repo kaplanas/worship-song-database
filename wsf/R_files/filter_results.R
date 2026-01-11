@@ -1,5 +1,5 @@
 # Filter by song title
-if(input$songTitle != "") {
+if(nchar(input$songTitle) >= 3) {
   if(input$songTitleOptions == "String") {
     parts = c(input$songTitle)
   }
@@ -11,42 +11,49 @@ if(input$songTitle != "") {
   }
   for(part in parts) {
     results.df = results.df %>%
-      inner_join(song.instances.df, by = "song.id") %>%
-      filter(grepl(part, song.instance, ignore.case = T)) %>%
-      dplyr::select(song.id, song.name) %>%
+      separate_rows(panel.name, sep = "<br/>") %>%
+      mutate(panel.name = gsub("<[a-z]+/?>", "", panel.name)) %>%
+      filter(grepl(part, panel.name, ignore.case = T)) %>%
+      dplyr::select(song.id) %>%
       distinct()
   }
 }
 
 # Filter by artist
-if(input$artistName != "") {
+if(nchar(input$artistName) >= 3) {
   parts = unlist(strsplit(input$artistName, " "))
   parts = parts[nchar(parts) > 0]
-  parts = paste(parts, collapse = "|")
-  artist.ids = artists.df %>%
-    filter(grepl(parts, first.name, ignore.case = T) |
-             grepl(parts, last.name, ignore.case = T)) %>%
-    pull(artist.id)
+  expression.attribute.values = lapply(
+    set_names(parts, paste(":p", 1:length(parts), sep = "")),
+    function(p) { list(S = str_to_lower(p)) }
+  )
+  filter.expression = paste(paste("contains(ArtistNameLower, :p",
+                                  1:length(parts), ")", sep = ""),
+                            collapse = " OR ")
+  artist.ids = wsf.db$scan(TableName = "wsf_artists",
+                           ExpressionAttributeValues = expression.attribute.values,
+                           FilterExpression = filter.expression)
+  artist.ids = map_int(artist.ids$Items,
+                       function(x) { as.numeric(x$ArtistID$N) })
   song.ids = do.call(
     c,
-    map(
-      artist.ids,
-      function(ai) {
-        query.results = wsf.db$query(TableName = "wsf_songinstances_artists",
-                                     ExpressionAttributeValues = list(`:a` = list(N = ai),
-                                                                      `:r` = list(S = input$artistNameOptions),
-                                                                      `:any` = list(S = "any")),
-                                     KeyConditionExpression = "ArtistID = :a",
-                                     ProjectionExpression = "SongID",
-                                     FilterExpression = "ArtistRole = :r OR :r = :any")
-        map_int(
-          query.results$Items,
-          function(item) {
-            as.numeric(item$SongID$N)
-          }
-        )
-      }
-    )
+    map(artist.ids,
+        function(ai) {
+          query.results = wsf.db$query(TableName = "wsf_songinstances_artists",
+                                       ExpressionAttributeValues = list(`:a` = list(N = ai),
+                                                                        `:r` = list(S = input$artistNameOptions),
+                                                                        `:any` = list(S = "any")),
+                                       KeyConditionExpression = "ArtistID = :a",
+                                       ProjectionExpression = "SongID",
+                                       FilterExpression = "ArtistRole = :r OR :r = :any")
+          map_int(
+            query.results$Items,
+            function(item) {
+              as.numeric(item$SongID$N)
+            }
+          )
+        }
+      )
   )
   song.ids = unique(sort(song.ids))
   results.df = results.df %>%
@@ -81,23 +88,21 @@ if(length(input$topicChoices) >= 1) {
 }
 
 # Filter by scripture reference
-if(input$scriptureBook != 0) {
+if(input$scriptureBook != 0 &
+   (input$scriptureOptions == "Single verse" |
+    as.numeric(input$scriptureVerseStart) <= as.numeric(input$scriptureVerseEnd))) {
   if(input$scriptureOptions == "Single verse") {
-    scripture.reference.ids = scripture.references.df %>%
-      filter(book.id == input$scriptureBook,
-             chapter == input$scriptureChapterStart,
+    scripture.reference.ids = scripture.references.df() %>%
+      filter(chapter == input$scriptureChapter,
              verse == input$scriptureVerseStart) %>%
       pull(scripture.reference.id)
   }
   else {
-    scripture.reference.ids = scripture.references.df %>%
-      filter(book.id == input$scriptureBook,
-             chapter > as.numeric(input$scriptureChapterStart) |
-               (chapter == input$scriptureChapterStart &
-                  verse >= as.numeric(input$scriptureVerseStart)),
-             chapter < as.numeric(input$scriptureChapterEnd) |
-               (chapter == input$scriptureChapterEnd &
-                  verse <= as.numeric(input$scriptureVerseEnd)))
+    scripture.reference.ids = scripture.references.df() %>%
+      filter(chapter == input$scriptureChapter,
+             verse >= as.numeric(input$scriptureVerseStart),
+             verse <= as.numeric(input$scriptureVerseEnd)) %>%
+      pull(scripture.reference.id)
   }
   song.ids = do.call(
     c,
@@ -257,7 +262,7 @@ if(length(input$keyChoices) >= 1) {
                   filter(song.instance.id %in% song.instance.ids) %>%
                   dplyr::select(song.id) %>%
                   distinct(),
-                by =)
+                by = "song.id")
   }
   else {
     song.ids = do.call(
@@ -310,7 +315,7 @@ if(length(input$timeChoices) >= 1) {
                   filter(song.instance.id %in% song.instance.ids) %>%
                   dplyr::select(song.id) %>%
                   distinct(),
-                by =)
+                by = "song.id")
   }
   else {
     song.ids = do.call(
@@ -363,7 +368,7 @@ if(length(input$meterChoices) >= 1) {
                   filter(song.instance.id %in% song.instance.ids) %>%
                   dplyr::select(song.id) %>%
                   distinct(),
-                by =)
+                by = "song.id")
   }
   else {
     song.ids = do.call(
@@ -391,19 +396,25 @@ if(length(input$meterChoices) >= 1) {
 }
 
 # Filter by tune name
-if(input$tuneName != "") {
+if(nchar(input$tuneName) >= 3) {
   if(input$tuneNameOptions == "String") {
     parts = c(input$tuneName)
   }
   else {
     parts = unlist(strsplit(input$tuneName, " "))
-    if(input$tuneNameOptions == "Whole words") {
-      parts = paste("\\b", parts, "\\b", sep = "")
-    }
   }
-  tune.ids = tunes.df %>%
-    filter(grepl(parts, tune.name, ignore.case = T)) %>%
-    pull(tune.id)
+  expression.attribute.values = lapply(
+    set_names(parts, paste(":p", 1:length(parts), sep = "")),
+    function(p) { list(S = str_to_lower(p)) }
+  )
+  filter.expression = paste(paste("contains(TuneNameLower, :p",
+                                  1:length(parts), ")", sep = ""),
+                            collapse = " OR ")
+  tune.ids = wsf.db$scan(TableName = "wsf_tunes",
+                         ExpressionAttributeValues = expression.attribute.values,
+                         FilterExpression = filter.expression)
+  tune.ids = map_int(tune.ids$Items,
+                     function(x) { as.numeric(x$TuneID$N) })
   song.ids = do.call(
     c,
     map(

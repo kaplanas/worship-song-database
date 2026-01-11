@@ -5,7 +5,7 @@ list(
        FROM wsf.artists
        WHERE ArtistID IN ({keys*})",
     wsf_songinstances =
-      "SELECT *
+      "SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE SongInstanceID IN
              (SELECT songinstances_artists.SongInstanceID
