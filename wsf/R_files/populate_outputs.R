@@ -12,8 +12,24 @@ create.song.panel = function(sid) {
   song.instances = song.instances.df %>%
     filter(song.id == sid) %>%
     arrange(desc(num.entries))
-  panel.content = c(panel.content, lapply(song.instances$HTML, HTML))
-  song.panel = tabPanel(title = panel.title, panel.content)
+  info.panels = list(tabPanel("Song info", lapply(song.instances$HTML, HTML)))
+  lyrics.df = dynamodb.items.to.df(wsf.db, "wsf_songs_lyrics_tabs", "SongID",
+                                   sid)
+  if(nrow(lyrics.df) > 0) {
+    lyrics.df = lyrics.df %>%
+      dplyr::select(lyrics.order = LyricsOrder, lyrics.html = LyricsHTML,
+                    tab.name = TabName) %>%
+      mutate(non.english = grepl("[(]", tab.name)) %>%
+      arrange(non.english, lyrics.order)
+    for(j in 1:nrow(lyrics.df)) {
+      info.panels[[length(info.panels) + 1]] = tabPanel(lyrics.df$tab.name[j],
+                                                        tags$p(),
+                                                        HTML(lyrics.df$lyrics.html[j]))
+    }
+  }
+  song.panel = tabPanel(tags$style(HTML(".tabbable > ul > li > a {margin-top: 20px;}")),
+                        title = panel.title, panel.content,
+                        do.call(tabsetPanel, info.panels))
   return(song.panel)
 }
 

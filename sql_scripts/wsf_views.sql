@@ -822,6 +822,45 @@ FROM song_names
      LEFT JOIN topics
      ON song_names.SongID = topics.SongID;
 
+-- Table that connects songs and lyrics; not saved to DynamoDB, but useful for
+-- other queries
+CREATE OR REPLACE VIEW wsf.songs_lyrics AS
+WITH unique_lyrics AS
+     (SELECT DISTINCT songinstances.SongID,
+             lyrics.LyricsID,
+             lyrics.FirstLine,
+             lyrics.LanguageID
+      FROM wsdb.songinstances
+           JOIN wsdb.songinstances_lyrics
+           ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+           JOIN wsdb.lyrics
+           ON songinstances_lyrics.LyricsID = lyrics.LyricsID)
+SELECT unique_lyrics.SongID,
+       unique_lyrics.LyricsID,
+       unique_lyrics.FirstLine,
+       unique_lyrics.LanguageID,
+       ROW_NUMBER() OVER (PARTITION BY unique_lyrics.SongID
+                          ORDER BY unique_lyrics.LyricsID) AS LyricsOrder
+FROM unique_lyrics;
+
+-- Table of lyrics tabs for songs
+CREATE OR REPLACE VIEW wsf.songs_lyrics_tabs AS
+SELECT songs_lyrics.SongID,
+       CONCAT('Lyrics',
+              CASE WHEN languages.LanguageID = 1 THEN ''
+                   ELSE CONCAT(' (', languages.LanguageName, ')')
+              END) AS TabName,
+       songs_lyrics.LyricsOrder,
+       GROUP_CONCAT(lyrics.LyricsHTML
+                    ORDER BY LyricsOrder
+                    SEPARATOR ' ') AS LyricsHTML
+FROM wsf.songs_lyrics
+     JOIN wsdb.languages
+     ON songs_lyrics.LanguageID = languages.LanguageID
+     JOIN wsdb.lyrics
+     ON songs_lyrics.LyricsID = lyrics.LyricsID
+GROUP BY songs_lyrics.SongID, 2;
+
 -- PSALM SONG DATA --
 
 -- Table that connects psalm songs and lyrics; not saved to DynamoDB, but useful

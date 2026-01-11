@@ -9,6 +9,37 @@ list(
               WHERE songinstances_languages.LanguageID IN ({keys*}))"
   ),
   multi = list(
+    wsf_songs_lyrics_tabs = list(
+      keys = c("SongID", "LyricsOrder"),
+      sql = "WITH RECURSIVE
+                  translations AS
+                  (SELECT lyrics.LyricsID,
+                          lyrics_translations.TranslatedFromID
+                   FROM wsdb.lyrics
+                        LEFT JOIN wsdb.lyrics_translations
+                        ON lyrics.LyricsID = lyrics_translations.LyricsID
+                   UNION ALL
+                   SELECT translations.LyricsID,
+                          lyrics_translations.TranslatedFromID
+                   FROM translations
+                        JOIN wsdb.lyrics_translations
+                        ON translations.TranslatedFromID = lyrics_translations.LyricsID)
+             SELECT *
+             FROM wsf.songs_lyrics_tabs
+             WHERE SongID IN
+                   (SELECT songinstances.SongID
+                    FROM wsdb.songinstances
+                         JOIN wsdb.songinstances_lyrics
+                         ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+                         JOIN translations
+                         ON songinstances_lyrics.LyricsID = translations.LyricsID
+                         LEFT JOIN wsdb.lyrics l
+                         ON translations.LyricsID = l.LyricsID
+                         LEFT JOIN wsdb.lyrics t
+                         ON translations.TranslatedFromID = t.LyricsID
+                    WHERE l.LanguageID IN ({keys*})
+                          OR t.LanguageID IN ({keys*}))")
+    ),
     wsf_psalmsongs_lyrics_tabs = list(
       keys = c("PsalmSongID", "LyricsOrder"),
       sql = "WITH RECURSIVE

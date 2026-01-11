@@ -254,6 +254,15 @@ write.to.dynamodb(songs.df,
                   c(),
                   "wsf_songs")
 
+# Table of lyrics tabs for songs.
+songs.lyrics.tabs.df = dbGetQuery(wsdb.con,
+                                  "SELECT * FROM wsf.songs_lyrics_tabs")
+write.to.dynamodb(songs.lyrics.tabs.df,
+                  c("LyricsOrder"),
+                  c("SongID", "TabName", "LyricsHTML"),
+                  c(),
+                  "wsf_songs_lyrics_tabs")
+
 # Table of lyrics tabs for psalm songs.
 psalmsongs.lyrics.tabs.df = dbGetQuery(wsdb.con,
                                        "SELECT * FROM wsf.psalmsongs_lyrics_tabs")

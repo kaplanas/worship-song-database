@@ -129,6 +129,15 @@ list(
              FROM wsf.songinstances_tunes
              WHERE SongInstanceID IN ({keys*})"
     ),
+    wsf_songs_lyrics_tabs = list(
+      keys = c("SongID", "LyricsOrder"),
+      sql = "SELECT *
+             FROM wsf.songs_lyrics_tabs
+             WHERE SongID IN
+                   (SELECT songinstances.SongID
+                    FROM wsdb.songinstances
+                    WHERE songinstances.SongInstanceID IN ({keys*}))"
+    ),
     wsf_psalmsongs_lyrics_tabs = list(
       keys = c("PsalmSongID", "LyricsOrder"),
       sql = "SELECT *
