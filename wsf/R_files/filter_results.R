@@ -1,3 +1,34 @@
+dynamo.scan.filter = function(db, table.name, expression.attribute.values,
+                              filter.expression, return.field.name,
+                              return.field.type, start.key = NULL) {
+  if(is.null(start.key)) {
+    result = db$scan(TableName = table.name,
+                     ExpressionAttributeValues = expression.attribute.values,
+                     FilterExpression = filter.expression) 
+  } else {
+    result = db$scan(TableName = table.name,
+                     ExpressionAttributeValues = expression.attribute.values,
+                     FilterExpression = filter.expression,
+                     ExclusiveStartKey = start.key) 
+  }
+  if(return.field.type == "N") {
+    ids = map_int(result$Items,
+                  function(x) { as.numeric(x[[return.field.name]]$N) })
+  } else if(return.field.type == "S") {
+    ids = map_chr(result$Items,
+                  function(x) { as.numeric(x[[return.field.name]]$S) })
+  }
+  if(length(result$LastEvaluatedKey) > 0) {
+    return(c(ids, dynamo.scan.filter(db, table.name,
+                                     expression.attribute.values,
+                                     filter.expression, return.field.name,
+                                     return.field.type,
+                                     result$LastEvaluatedKey)))
+  } else {
+    return(ids)
+  }
+}
+
 # Filter by song title
 if(nchar(input$songTitle) >= 3) {
   if(input$songTitleOptions == "String") {
@@ -30,11 +61,10 @@ if(nchar(input$artistName) >= 3) {
   filter.expression = paste(paste("contains(ArtistNameLower, :p",
                                   1:length(parts), ")", sep = ""),
                             collapse = " OR ")
-  artist.ids = wsf.db$scan(TableName = "wsf_artists",
-                           ExpressionAttributeValues = expression.attribute.values,
-                           FilterExpression = filter.expression)
-  artist.ids = map_int(artist.ids$Items,
-                       function(x) { as.numeric(x$ArtistID$N) })
+  artist.ids = dynamo.scan.filter(wsf.db, "wsf_artists",
+                                  expression.attribute.values,
+                                  filter.expression, "ArtistID", "N")
+  artist.ids = unique(artist.ids)
   song.ids = do.call(
     c,
     map(artist.ids,
@@ -433,6 +463,29 @@ if(nchar(input$tuneName) >= 3) {
       }
     )
   )
+  song.ids = unique(sort(song.ids))
+  results.df = results.df %>%
+    filter(song.id %in% song.ids)
+}
+
+# Filter by lyrics
+if(nchar(input$lyricsSearch) >= 4) {
+  if(input$lyricsOptions == "String") {
+    parts = c(input$lyricsSearch)
+  }
+  else {
+    parts = unlist(strsplit(input$lyricsSearch, " "))
+  }
+  expression.attribute.values = lapply(
+    set_names(parts, paste(":p", 1:length(parts), sep = "")),
+    function(p) { list(S = gsub("[[:space:]]+", " ", str_to_lower(p))) }
+  )
+  filter.expression = paste(paste("contains(LyricsLower, :p",
+                                  1:length(parts), ")", sep = ""),
+                            collapse = " AND ")
+  song.ids = dynamo.scan.filter(wsf.db, "wsf_songs_lyrics_tabs",
+                                expression.attribute.values, filter.expression,
+                                "SongID", "N")
   song.ids = unique(sort(song.ids))
   results.df = results.df %>%
     filter(song.id %in% song.ids)

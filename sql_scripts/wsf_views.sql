@@ -853,7 +853,12 @@ SELECT songs_lyrics.SongID,
        songs_lyrics.LyricsOrder,
        GROUP_CONCAT(lyrics.LyricsHTML
                     ORDER BY LyricsOrder
-                    SEPARATOR ' ') AS LyricsHTML
+                    SEPARATOR ' ') AS LyricsHTML,
+       GROUP_CONCAT(REGEXP_REPLACE(REGEXP_REPLACE(LOWER(lyrics.LyricsHTML),
+                                                  '<[^<>]+>', ''),
+                                   '[[:space:]]+', ' ')
+                    ORDER BY LyricsOrder
+                    SEPARATOR ' ') AS LyricsLower
 FROM wsf.songs_lyrics
      JOIN wsdb.languages
      ON songs_lyrics.LanguageID = languages.LanguageID

@@ -155,6 +155,16 @@ tune.name.filter = tabPanel("Tune name",
                                           placeholder = "Enter at least three characters"))
 )
 
+# Lyrics filter
+lyrics.filter = tabPanel("Lyrics",
+                         div(id = "lyricsFilter",
+                             radioButtons("lyricsOptions", NULL,
+                                          choices = c("Parts", "String")),
+                             textInput("lyricsSearch", NULL,
+                                       placeholder = "Enter at least four characters"),
+                             tags$p("Can be slow.  Search is not case-sensitive.  Finds songs where the string (or all pieces thereof) is found anywhere in the lyrics."))
+)
+
 # Psalm number filter
 psalm.number.filter = selectInput("psalmNumber",
                                   "Psalm number:",

@@ -7,7 +7,7 @@ create.song.panel = function(sid) {
                           justify = "space-between")
   panel.content = list(h1(song.row$song.name))
   if(!is.na(song.row$topics)) {
-    panel.content[[length(panel.content) + 1]] = song.row$topics
+    panel.content[[length(panel.content) + 1]] = tags$p(song.row$topics)
   }
   song.instances = song.instances.df %>%
     filter(song.id == sid) %>%
@@ -21,13 +21,26 @@ create.song.panel = function(sid) {
                     tab.name = TabName) %>%
       mutate(non.english = grepl("[(]", tab.name)) %>%
       arrange(non.english, lyrics.order)
+    if(nchar(input$lyricsSearch) >= 4) {
+      parts = input$lyricsSearch
+      if(input$lyricsOptions == "Parts") {
+        parts = unlist(strsplit(parts, " "))
+        parts = parts[nchar(parts) > 0]
+      }
+      for(p in parts) {
+        lyrics.df = lyrics.df %>%
+          mutate(lyrics.html = gsub(paste("(", p, ")", sep = ""),
+                                    "<b><mark>\\1</mark></b>",
+                                    lyrics.html, ignore.case = T))
+      }
+    }
     for(j in 1:nrow(lyrics.df)) {
       info.panels[[length(info.panels) + 1]] = tabPanel(lyrics.df$tab.name[j],
                                                         tags$p(),
                                                         HTML(lyrics.df$lyrics.html[j]))
     }
   }
-  song.panel = tabPanel(tags$style(HTML(".tabbable > ul > li > a {margin-top: 20px;}")),
+  song.panel = tabPanel(tags$style(HTML("mark { background-color: yellow; }")),
                         title = panel.title, panel.content,
                         do.call(tabsetPanel, info.panels))
   return(song.panel)
@@ -64,7 +77,8 @@ output$songList = renderUI({
       length(input$keyChoices) > 0 |
       length(input$timeChoices) > 0 |
       length(input$meterChoices) > 0 |
-      nchar(input$tuneName) >= 3)) {
+      nchar(input$tuneName) >= 3 |
+      nchar(input$lyricsSearch) >= 4)) {
     n.songs = nrow(results.df)
     if(n.songs >= 50) {
       withProgress(message = "Loading songs", value = 0, {

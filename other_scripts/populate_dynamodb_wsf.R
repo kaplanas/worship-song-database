@@ -258,8 +258,8 @@ write.to.dynamodb(songs.df,
 songs.lyrics.tabs.df = dbGetQuery(wsdb.con,
                                   "SELECT * FROM wsf.songs_lyrics_tabs")
 write.to.dynamodb(songs.lyrics.tabs.df,
-                  c("LyricsOrder"),
-                  c("SongID", "TabName", "LyricsHTML"),
+                  c("SongID", "LyricsOrder"),
+                  c("TabName", "LyricsHTML", "LyricsLower"),
                   c(),
                   "wsf_songs_lyrics_tabs")
 
