@@ -39,7 +39,7 @@ manage.songs.info = list(
   related.label.tables = c("song.labels"),
   related.selectors = c("manage.songs.id", "alt.by.song.id"),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/songs.R")$value
+  dynamo.updates = source("dynamo_updates/songs.R")$value
 )
 
 #### Lyrics ####
@@ -76,7 +76,7 @@ manage.lyrics.info = list(
   related.label.tables = c("lyrics.labels"),
   related.selectors = c("manage.lyrics.id"),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/lyrics.R")$value,
+  dynamo.updates = source("dynamo_updates/lyrics.R")$value,
   filename.sql = "SELECT FileName FROM wsdb.lyrics WHERE LyricsID = {LyricsID}"
 )
 
@@ -109,7 +109,7 @@ manage.tunes.info = list(
   related.label.tables = c("tune.labels"),
   related.selectors = c("manage.tunes.id", "alt.by.tune.id"),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/tunes.R")$value
+  dynamo.updates = source("dynamo_updates/tunes.R")$value
 )
 
 #### Arrangements ####
@@ -143,7 +143,7 @@ manage.arrangements.info = list(
   related.label.tables = c("arrangement.labels"),
   related.selectors = c("manage.arrangements.id"),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/arrangements.R")$value
+  dynamo.updates = source("dynamo_updates/arrangements.R")$value
 )
 
 #### Song instances ####
@@ -178,7 +178,7 @@ manage.song.instances.info = list(
   related.label.tables = c("song.instance.labels"),
   related.selectors = c("manage.song.instances.id"),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/songinstances.R")$value
+  dynamo.updates = source("dynamo_updates/songinstances.R")$value
 )
 
 #### Metrical psalms ####
@@ -203,7 +203,7 @@ manage.metrical.psalms.info = list(
   related.label.tables = c("metrical.psalm.labels"),
   related.selectors = c("manage.metrical.psalms.id"),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/metricalpsalms.R")$value
+  dynamo.updates = source("dynamo_updates/metricalpsalms.R")$value
 )
 
 #### Combined info ####

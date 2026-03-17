@@ -17,6 +17,15 @@ list(
               FROM wsf.songinstances_keysignatures
                    JOIN wsdb.keysignatures
                    ON songinstances_keysignatures.KeySignatureID = keysignatures.KeySignatureID
+              WHERE keysignatures.AccidentalID IN ({keys*}))",
+    och_songinstances =
+      "SELECT SongInstanceID, SongInstanceLabel
+       FROM och.songinstances_labels
+       WHERE SongInstanceID IN
+             (SELECT songinstances_keysignatures.SongInstanceID
+              FROM wsdb.songinstances_keysignatures
+                   JOIN wsdb.keysignatures
+                   ON songinstances_keysignatures.KeySignatureID = keysignatures.KeySignatureID
               WHERE keysignatures.AccidentalID IN ({keys*}))"
   )
 )

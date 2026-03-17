@@ -14,12 +14,14 @@ list(
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
-       WHERE SongID IN
-             (SELECT songinstances.SongID
+       WHERE PsalmSongID IN
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
               FROM wsdb.songinstances
+                   JOIN wsdb.psalmsongs
+                   ON songinstances.SongID = psalmsongs.SongID
                    JOIN wsf.songinstances_songbooks
                    ON songinstances.SongInstanceID = songinstances_songbooks.SongInstanceID
               WHERE songinstances_songbooks.SongbookEntryID IN ({keys*}))"
   ),
-  delete = "wsf_songinstances_songbooks"
+  delete = c("wsf_songinstances_songbooks")
 )

@@ -10,5 +10,5 @@ list(
               GROUP BY songinstances_meters.MeterID
               HAVING COUNT(DISTINCT songinstances_meters.SongID) >= 5)"
   ),
-  delete = "wsf_meters"
+  delete = c("wsf_meters")
 )

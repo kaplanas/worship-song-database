@@ -26,6 +26,17 @@ list(
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
+       WHERE PsalmSongID IN
+             (SELECT songinstances.SongID
+              FROM wsdb.songinstances
+                   JOIN wsdb.psalmsongs
+                   ON songinstances.SongID = psalmsongs.SongID
+                   JOIN wsdb.songinstances_tunes
+                   ON songinstances.SongInstanceID = songinstances_tunes.SongInstanceID
+              WHERE songinstances_tunes.TuneID IN ({keys*}))",
+    och_song_info =
+      "SELECT *
+       FROM och.song_info
        WHERE SongID IN
              (SELECT songinstances.SongID
               FROM wsdb.songinstances
@@ -58,15 +69,17 @@ list(
                     FROM wsdb.songinstances_tunes
                     WHERE songinstances_tunes.TuneID IN ({keys*}))"
     ),
-    wsf_meters =
-      "SELECT *
-       FROM wsf.meters
-       WHERE MeterID IN
-             (SELECT lyrics_meters.MeterID
-              FROM wsdb.lyrics_meters
-                   JOIN wsdb.songinstances_lyrics
-                   ON lyrics_meters.LyricsID = songinstances_lyrics.LyricsID
-              WHERE lyrics_meters.LyricsID IN ({keys*}))"
+    wsf_meters = list(
+      keys = c("MeterID"),
+      sql = "SELECT *
+             FROM wsf.meters
+             WHERE MeterID IN
+                   (SELECT lyrics_meters.MeterID
+                    FROM wsdb.lyrics_meters
+                         JOIN wsdb.songinstances_lyrics
+                         ON lyrics_meters.LyricsID = songinstances_lyrics.LyricsID
+                    WHERE lyrics_meters.LyricsID IN ({keys*}))"
+    )
   ),
-  delete = "wsf_tunes"
+  delete = c("wsf_tunes")
 )

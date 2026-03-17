@@ -258,27 +258,27 @@ WITH all_song_lyrics AS
       FROM wsdb.songinstances
            JOIN wsdb.songinstances_lyrics
            ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
-		   JOIN wsdb.lyrics
+           JOIN wsdb.lyrics
            ON songinstances_lyrics.LyricsID = lyrics.LyricsID
            LEFT JOIN (SELECT DISTINCT LyricsID
                       FROM wsdb.lyrics_translations) lyrics_translations
-		   ON lyrics.LyricsID = lyrics_translations.LyricsID
-	  GROUP BY songinstances.SongID,
+           ON lyrics.LyricsID = lyrics_translations.LyricsID
+      GROUP BY songinstances.SongID,
                COALESCE(lyrics.RefrainFirstLine, lyrics.FirstLine, ''),
                lyrics.LyricsID)
 SELECT songs.SongID,
        CONCAT('<b>', songs.SongName,
-			  CASE WHEN songs.SongDisambiguator IS NULL THEN ''
-				   ELSE CONCAT(' (', CONCAT(songs.SongDisambiguator, ')'))
-			  END,
+              CASE WHEN songs.SongDisambiguator IS NULL THEN ''
+                   ELSE CONCAT(' (', CONCAT(songs.SongDisambiguator, ')'))
+              END,
               '</b>',
               CASE WHEN song_lyrics.LyricsLine IS NULL THEN ''
                    ELSE CONCAT('\n', song_lyrics.LyricsLine)
-			  END) AS SongLabel
+              END) AS SongLabel
 FROM wsdb.songs
      LEFT JOIN (SELECT SongID, LyricsLine,
                        ROW_NUMBER()
-					   OVER (PARTITION BY SongID
+                       OVER (PARTITION BY SongID
                              ORDER BY EnglishOrSpanish DESC,
                                       Translation,
                                       English DESC,

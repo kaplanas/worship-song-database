@@ -14,6 +14,21 @@ list(
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
+       WHERE PsalmSongID IN
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
+              FROM wsdb.psalmsongs
+              WHERE psalmsongs.SongID IN ({keys*}))",
+    och_songs =
+      "SELECT SongID, SongLabel
+       FROM och.song_labels
+       WHERE SongID IN ({keys*})",
+    och_songtitles =
+      "SELECT SongID, SongTitles
+       FROM och.song_titles
+       WHERE SongID IN ({keys*})",
+    och_song_info =
+      "SELECT *
+       FROM och.song_info
        WHERE SongID IN ({keys*})"
   ),
   multi = list(
@@ -24,5 +39,5 @@ list(
              WHERE SongID IN ({keys*})"
     )
   ),
-  delete = "wsf_songs"
+  delete = c("wsf_songs", "och_songs")
 )

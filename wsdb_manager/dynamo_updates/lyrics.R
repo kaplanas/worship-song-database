@@ -79,6 +79,40 @@ list(
                   ON translations.TranslatedFromID = lyrics_translations.LyricsID)
        SELECT *
        FROM wsf.psalmsongs
+       WHERE PsalmSongID IN
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
+              FROM wsdb.songinstances
+                   JOIN wsdb.songinstances_lyrics
+                   ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+                   JOIN translations
+                   ON songinstances_lyrics.LyricsID = translations.LyricsID
+                   JOIN wsdb.psalmsongs
+                   ON songinstances.SongID = psalmsongs.SongID
+              WHERE translations.LyricsID IN ({keys*})
+                    OR translations.TranslatedFromID IN ({keys*}))
+             OR PsalmSongID IN
+                (SELECT CONCAT('MP', metricalpsalms_lyrics.MetricalPsalmID)
+                 FROM wsdb.metricalpsalms_lyrics
+                      JOIN translations
+                      ON metricalpsalms_lyrics.LyricsID = translations.LyricsID
+                 WHERE translations.LyricsID IN ({keys*})
+                       OR translations.TranslatedFromID IN ({keys*}))",
+    och_songs =
+      "WITH RECURSIVE
+            translations AS
+            (SELECT lyrics.LyricsID,
+                    lyrics_translations.TranslatedFromID
+             FROM wsdb.lyrics
+                  LEFT JOIN wsdb.lyrics_translations
+                  ON lyrics.LyricsID = lyrics_translations.LyricsID
+             UNION ALL
+             SELECT translations.LyricsID,
+                    lyrics_translations.TranslatedFromID
+             FROM translations
+                  JOIN wsdb.lyrics_translations
+                  ON translations.TranslatedFromID = lyrics_translations.LyricsID)
+       SELECT SongID, SongLabel
+       FROM och.song_labels
        WHERE SongID IN
              (SELECT songinstances.SongID
               FROM wsdb.songinstances
@@ -87,14 +121,16 @@ list(
                    JOIN translations
                    ON songinstances_lyrics.LyricsID = translations.LyricsID
               WHERE translations.LyricsID IN ({keys*})
-                    OR translations.TranslatedFromID IN ({keys*}))
-             OR MetricalPsalmID IN
-                (SELECT metricalpsalms_lyrics.MetricalPsalmID
-                 FROM wsdb.metricalpsalms_lyrics
-                      JOIN translations
-                      ON metricalpsalms_lyrics.LyricsID = translations.LyricsID
-                 WHERE translations.LyricsID IN ({keys*})
-                       OR translations.TranslatedFromID IN ({keys*}))"
+                    OR translations.TranslatedFromID IN ({keys*}))",
+    och_song_info =
+      "SELECT *
+       FROM och.song_info
+       WHERE SongID IN
+             (SELECT songinstances.SongID
+              FROM wsdb.songinstances
+                   JOIN wsdb.songinstances_lyrics
+                   ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
+              WHERE songinstances_lyrics.LyricsID IN ({keys*}))"
   ),
   multi = list(
     wsf_songinstances_artists = list(
@@ -158,7 +194,7 @@ list(
                          JOIN translations
                          ON songinstances_lyrics.LyricsID = translations.LyricsID
                     WHERE translations.LyricsID IN ({keys*})
-                          OR translations.TranslatedFromID IN ({keys*}))")
+                          OR translations.TranslatedFromID IN ({keys*}))"
     ),
     wsf_psalmsongs_lyrics_tabs = list(
       keys = c("PsalmSongID", "LyricsOrder"),
@@ -178,23 +214,22 @@ list(
              SELECT *
              FROM wsf.psalmsongs_lyrics_tabs
              WHERE PsalmSongID IN
-                   (SELECT psalmsongs.PsalmSongID
+                   (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
                     FROM wsdb.songinstances
                          JOIN wsdb.songinstances_lyrics
                          ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
                          JOIN translations
                          ON songinstances_lyrics.LyricsID = translations.LyricsID
-                         JOIN wsf.psalmsongs
+                         JOIN wsdb.psalmsongs
                          ON songinstances.SongID = psalmsongs.SongID
                     WHERE translations.LyricsID IN ({keys*})
                           OR translations.TranslatedFromID IN ({keys*}))
                    OR PsalmSongID IN
-                      (SELECT psalmsongs.PsalmSongID
+                      (SELECT CONCAT('MP',
+                                     metricalpsalms_lyrics.MetricalPsalmID)
                        FROM wsdb.metricalpsalms_lyrics
                             JOIN translations
                             ON metricalpsalms_lyrics.LyricsID = translations.LyricsID
-                            JOIN wsf.psalmsongs
-                            ON metricalpsalms_lyrics.MetricalPsalmID = psalmsongs.MetricalPsalmID
                        WHERE translations.LyricsID IN ({keys*})
                              OR translations.TranslatedFromID IN ({keys*}))"
     )

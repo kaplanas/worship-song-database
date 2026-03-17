@@ -12,5 +12,5 @@ list(
               FROM wsf.songs_topics
               WHERE songs_topics.TopicID IN ({keys*}))"
   ),
-  delete = "wsf_topics"
+  delete = c("wsf_topics")
 )

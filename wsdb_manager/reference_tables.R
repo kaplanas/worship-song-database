@@ -48,7 +48,7 @@ manage.artists.info = list(
   related.label.tables = c("artist.labels"),
   related.selectors = c(),
   related.processing.table = T,
-  wsf.updates = source("wsf_updates/artists.R")$value
+  dynamo.updates = source("dynamo_updates/artists.R")$value
 )
 
 manage.artists = tabPanel(
@@ -109,7 +109,7 @@ manage.copyright.holders.info = list(
   related.label.tables = c("copyright.holder.labels"),
   related.selectors = c(),
   related.processing.table = T,
-  wsf.updates = source("wsf_updates/copyrightholders.R")$value
+  dynamo.updates = source("dynamo_updates/copyrightholders.R")$value
 )
 
 manage.copyright.holders = tabPanel(
@@ -197,7 +197,7 @@ manage.scripture.references.info = list(
   related.label.tables = c("scripture.reference.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/scripturereferences.R")$value
+  dynamo.updates = source("dynamo_updates/scripturereferences.R")$value
 )
 
 manage.scripture.references = tabPanel(
@@ -227,7 +227,7 @@ manage.meters.info = list(
   related.label.tables = c("meter.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/meters.R")$value
+  dynamo.updates = source("dynamo_updates/meters.R")$value
 )
 
 manage.meters = tabPanel(
@@ -256,7 +256,7 @@ manage.pitches.info = list(
   related.label.tables = c("pitch.labels", "key.signature.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/pitches.R")$value
+  dynamo.updates = source("dynamo_updates/pitches.R")$value
 )
 
 manage.pitches = tabPanel(
@@ -285,7 +285,7 @@ manage.accidentals.info = list(
   related.label.tables = c("accidental.labels", "key.signature.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/accidentals.R")$value
+  dynamo.updates = source("dynamo_updates/accidentals.R")$value
 )
 
 manage.accidentals = tabPanel(
@@ -314,7 +314,7 @@ manage.modes.info = list(
   related.label.tables = c("mode.labels", "key.signature.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/modes.R")$value
+  dynamo.updates = source("dynamo_updates/modes.R")$value
 )
 
 manage.modes = tabPanel(
@@ -346,7 +346,7 @@ manage.key.signatures.info = list(
   related.label.tables = c("key.signature.labels"),
   related.selectors = c(),
   related.processing.table = T,
-  wsf.updates = source("wsf_updates/keysignatures.R")$value
+  dynamo.updates = source("dynamo_updates/keysignatures.R")$value
 )
 
 manage.key.signatures = tabPanel(
@@ -376,7 +376,7 @@ manage.time.signatures.info = list(
   related.label.tables = c("time.signature.labels"),
   related.selectors = c(),
   related.processing.table = T,
-  wsf.updates = source("wsf_updates/timesignatures.R")$value
+  dynamo.updates = source("dynamo_updates/timesignatures.R")$value
 )
 
 manage.time.signatures = tabPanel(
@@ -405,7 +405,7 @@ manage.arrangement.types.info = list(
   related.label.tables = c("arrangement.type.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/arrangementtypes.R")$value
+  dynamo.updates = source("dynamo_updates/arrangementtypes.R")$value
 )
 
 manage.arrangement.types = tabPanel(
@@ -434,7 +434,7 @@ manage.topics.info = list(
   related.label.tables = c("topic.labels"),
   related.selectors = c(),
   related.processing.table = F,
-  wsf.updates = source("wsf_updates/topics.R")$value
+  dynamo.updates = source("dynamo_updates/topics.R")$value
 )
 
 manage.topics = tabPanel(
@@ -520,7 +520,7 @@ manage.songbooks.info = list(
   related.label.tables = c(),
   related.selectors = c("process.songbook.id"),
   related.processing.table = T,
-  wsf.updates = source("wsf_updates/songbooks.R")$value
+  dynamo.updates = source("dynamo_updates/songbooks.R")$value
 )
 
 manage.songbooks = tabPanel(
@@ -549,7 +549,7 @@ manage.songbook.volumes.info = list(
   related.label.tables = c(),
   related.selectors = c("process.songbook.volume.id"),
   related.processing.table = T,
-  wsf.updates = source("wsf_updates/songbookvolumes.R")$value
+  dynamo.updates = source("dynamo_updates/songbookvolumes.R")$value
 )
 
 manage.songbook.volumes = tabPanel(

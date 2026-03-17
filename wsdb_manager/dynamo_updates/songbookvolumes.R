@@ -10,9 +10,11 @@ list(
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
-       WHERE SongID IN
-             (SELECT songinstances_songbooks.SongID
+       WHERE PsalmSongID IN
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
               FROM wsf.songinstances_songbooks
+                   JOIN wsdb.psalmsongs
+                   ON songinstances_songbooks.SongID = psalmsongs.SongID
               WHERE songinstances_songbooks.SongbookVolumeID IN ({keys*}))"
   )
 )

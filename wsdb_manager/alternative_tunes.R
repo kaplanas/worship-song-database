@@ -18,7 +18,7 @@ alt.by.song.info = list(
     stringsAsFactors = F
   ),
   key = "AlternativeTuneID",
-  wsf.updates = source("wsf_updates/alternativetunes.R")$value,
+  dynamo.updates = source("dynamo_updates/alternativetunes.R")$value,
   suggest.sql = "SELECT CAST(NULL AS SIGNED) AS AlternativeTuneID,
                         tune_song_labels.TuneLabel,
                         CONCAT(CASE WHEN tune_song_labels.TuneLabel NOT IN
@@ -78,16 +78,16 @@ alt.by.song.info = list(
                       LEFT JOIN wsdb.alternativetunes existing_entries
                       ON tunes_meters.TuneID = existing_entries.TuneID
                          AND existing_entries.SongID = {alt.by.song.id}
-					            LEFT JOIN (SELECT tunes_meters.TuneID,
-					                              CONCAT(COALESCE(GROUP_CONCAT(DISTINCT
-					                                                           lyrics.MeterPattern), ''),
-					                                     ' ',
-					                                     GROUP_CONCAT(DISTINCT
+                      LEFT JOIN (SELECT tunes_meters.TuneID,
+                                        CONCAT(COALESCE(GROUP_CONCAT(DISTINCT lyrics.MeterPattern),
+                                                        ''),
+                                               ' ',
+                                               GROUP_CONCAT(DISTINCT
                                                             CONCAT(meters.Meter,
                                                                    CASE WHEN meters.Multiplier IS NULL
                                                                              THEN ''
                                                                         ELSE CONCAT(' ', meters.Multiplier)
-														                                       END)
+										                                                                   END)
                                                             SEPARATOR ', ')) AS Notes
                                  FROM wsdb.tunes_meters
                                       JOIN wsdb.meters
@@ -98,8 +98,8 @@ alt.by.song.info = list(
                                       ON songinstances_tunes.SongInstanceID = songinstances_lyrics.SongInstanceID
                                       LEFT JOIN wsdb.lyrics
                                       ON songinstances_lyrics.LyricsID = lyrics.LyricsID
-								                 WHERE meters.MeterID <> 1
-								                 GROUP BY tunes_meters.TuneID) tune_notes
+                                 WHERE meters.MeterID <> 1
+                                 GROUP BY tunes_meters.TuneID) tune_notes
                       ON tunes.TuneID = tune_notes.TuneID
                  WHERE songinstances.SongID = {alt.by.song.id}
                        AND tunes.TuneID NOT IN
@@ -111,7 +111,7 @@ alt.by.song.info = list(
                                  ON songinstances_lyrics.LyricsID = lyrics_moods.LyricsID
                                  JOIN wsdb.tunes
                                  ON lyrics_moods.MoodID = tunes.MoodID
-						                WHERE songinstances.SongID = {alt.by.song.id}
+                            WHERE songinstances.SongID = {alt.by.song.id}
                                   AND lyrics_moods.AssociationRule = 'Never')
                        AND existing_entries.AlternativeTuneID IS NULL
                        AND tunes.TuneID NOT IN
@@ -154,7 +154,7 @@ alt.by.metrical.psalm.info = list(
     stringsAsFactors = F
   ),
   key = "AlternativeTuneID",
-  wsf.updates = source("wsf_updates/alternativetunes.R")$value,
+  dynamo.updates = source("dynamo_updates/alternativetunes.R")$value,
   suggest.sql = "SELECT CAST(NULL AS SIGNED) AS AlternativeTuneID,
                         tune_song_labels.TuneLabel,
                         CONCAT(CASE WHEN tune_song_labels.TuneLabel NOT IN
@@ -268,7 +268,7 @@ alt.by.tune.info = list(
     stringsAsFactors = F
   ),
   key = "AlternativeTuneID",
-  wsf.updates = source("wsf_updates/alternativetunes.R")$value,
+  dynamo.updates = source("dynamo_updates/alternativetunes.R")$value,
   suggest.sql = "SELECT CAST(NULL AS SIGNED) AS AlternativeTuneID,
                         song_labels.SongLabel,
                         metricalpsalm_labels.MetricalPsalmLabel,

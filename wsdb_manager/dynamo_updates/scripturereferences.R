@@ -17,11 +17,13 @@ list(
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
-       WHERE SongID IN
-             (SELECT songinstances.SongID
+       WHERE PsalmSongID IN
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
               FROM wsf.songinstances
+                   JOIN wsdb.psalmsongs
+                   ON songinstances.SongID = psalmsongs.SongID
                    JOIN wsf.songinstances_scripturereferences
-                        ON songinstances.SongInstanceID = songinstances_scripturereferences.SongInstanceID
+                   ON songinstances.SongInstanceID = songinstances_scripturereferences.SongInstanceID
               WHERE songinstances_scripturereferences.ScriptureReferenceID IN ({keys*}))
              OR MetricalPsalmID IN
              (SELECT metricalpsalms_lyrics.MetricalPsalmID
@@ -30,5 +32,5 @@ list(
                    ON metricalpsalms_lyrics.LyricsID = lyrics_scripturereferences.LyricsID
               WHERE lyrics_scripturereferences.ScriptureReferenceID IN ({keys*}))"
   ),
-  delete = "wsf_scripturereferences"
+  delete = c("wsf_scripturereferences")
 )

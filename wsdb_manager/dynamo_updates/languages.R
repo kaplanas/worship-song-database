@@ -58,13 +58,13 @@ list(
              SELECT *
              FROM wsf.psalmsongs_lyrics_tabs
              WHERE PsalmSongID IN
-                   (SELECT psalmsongs.PsalmSongID
+                   (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
                     FROM wsdb.songinstances
                          JOIN wsdb.songinstances_lyrics
                          ON songinstances.SongInstanceID = songinstances_lyrics.SongInstanceID
                          JOIN translations
                          ON songinstances_lyrics.LyricsID = translations.LyricsID
-                         JOIN wsf.psalmsongs
+                         JOIN wsdb.psalmsongs
                          ON songinstances.SongID = psalmsongs.SongID
                          LEFT JOIN wsdb.lyrics l
                          ON translations.LyricsID = l.LyricsID
@@ -87,5 +87,5 @@ list(
                              OR t.LanguageID IN ({keys*}))"
     )
   ),
-  delete = "wsf_languages"
+  delete = c("wsf_languages")
 )

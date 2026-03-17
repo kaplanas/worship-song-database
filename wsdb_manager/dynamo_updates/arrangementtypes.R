@@ -15,5 +15,5 @@ list(
               FROM wsf.songinstances_arrangementtypes
               WHERE songinstances_arrangementtypes.ArrangementTypeID IN ({keys*}))"
   ),
-  delete = "wsf_arrangementtypes"
+  delete = c("wsf_arrangementtypes")
 )

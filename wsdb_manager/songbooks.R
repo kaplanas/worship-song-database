@@ -25,7 +25,7 @@ process.songbook.info = list(
     width = c(NA, NA, NA, 400, 200),
     stringsAsFactors = F
   ),
-  wsf.updates = source("wsf_updates/songinstances_songbooks.R")$value,
+  dynamo.updates = source("dynamo_updates/songinstances_songbooks.R")$value,
   update.sql = "UPDATE wsdb.songbookentries
                 SET EntryNumber = {EntryNumber},
                     SongInstanceID = {SongInstanceID}

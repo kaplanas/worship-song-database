@@ -2,6 +2,7 @@ CREATE ROLE 'wsdb_manager';
 
 GRANT SELECT ON wsdb.* TO 'wsdb_manager';
 GRANT SELECT ON wsf.* TO 'wsdb_manager';
+GRANT SELECT ON och.* TO 'wsdb_manager';
 
 GRANT INSERT, UPDATE, DELETE ON wsdb.accidentals TO 'wsdb_manager';
 GRANT INSERT, UPDATE, DELETE ON wsdb.arrangements TO 'wsdb_manager';

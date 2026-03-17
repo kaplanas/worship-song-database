@@ -63,6 +63,22 @@ list(
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
+       WHERE PsalmSongID IN
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
+              FROM wsdb.psalmsongs
+                   JOIN wsdb.songinstances
+                   ON psalmsongs.SongID = songinstances.SongID
+              WHERE songinstances.SongInstanceID IN ({keys*}))",
+    och_songtitles =
+      "SELECT SongID, SongTitles
+       FROM och.song_titles
+       WHERE SongID IN
+             (SELECT songinstances.SongID
+              FROM wsdb.songinstances
+              WHERE songinstances.SongInstanceID IN ({keys*}))",
+    och_song_info =
+      "SELECT *
+       FROM och.song_info
        WHERE SongID IN
              (SELECT songinstances.SongID
               FROM wsdb.songinstances
@@ -143,12 +159,12 @@ list(
       sql = "SELECT *
              FROM wsf.psalmsongs_lyrics_tabs
              WHERE PsalmSongID IN
-                   (SELECT psalmsongs.PsalmSongID
-                    FROM wsf.psalmsongs
+                   (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
+                    FROM wsdb.psalmsongs
                          JOIN wsdb.songinstances
                          ON psalmsongs.SongID = songinstances.SongID
                     WHERE songinstances.SongInstanceID IN ({keys*}))"
     )
   ),
-  delete = "wsf_songinstances"
+  delete = c("wsf_songinstances", "och_songinstances")
 )

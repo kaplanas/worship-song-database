@@ -5,5 +5,5 @@ list(
        FROM wsf.psalmsongs
        WHERE MetricalPsalmID IN ({keys*})"
   ),
-  delete = "wsf_psalmsongs"
+  delete = c("wsf_psalmsongs")
 )

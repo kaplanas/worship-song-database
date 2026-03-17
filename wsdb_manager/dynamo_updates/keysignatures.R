@@ -13,7 +13,14 @@ list(
        WHERE SongInstanceID IN
              (SELECT songinstances_keysignatures.SongInstanceID
               FROM wsf.songinstances_keysignatures
+              WHERE songinstances_keysignatures.KeySignatureID IN ({keys*}))",
+    och_songinstances =
+      "SELECT SongInstanceID, SongInstanceLabel
+       FROM och.songinstance_labels
+       WHERE SongInstanceID IN
+             (SELECT songinstances_keysignatures.SongInstanceID
+              FROM wsdb.songinstances_keysignatures
               WHERE songinstances_keysignatures.KeySignatureID IN ({keys*}))"
   ),
-  delete = "wsf_keysignatures"
+  delete = c("wsf_keysignatures")
 )
