@@ -89,6 +89,10 @@ server <- function(input, output, session) {
   # successfully)
   s3.client = reactiveVal(NULL)
 
+  # Reactive Textract progress file
+  textract.progress.file = reactiveVal(paste("progress_files/textract_",
+                                             session$token, ".txt", sep = ""))
+
   # Reactive song info tables
   song.table.task = ExtendedTask$new(function(db, st.info) {
     future_promise({
@@ -350,14 +354,19 @@ server <- function(input, output, session) {
           )
           
           # Attempt to extract text from the pdf
-          wh.text = pdf_text(input$wh.file[i,"datapath"])
-          wh.text = unlist(strsplit(wh.text, "\n|     +"))
-          wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "", wh.text)
-          wh.text = wh.text[wh.text != ""]
+          temp.wh.text = pdf_text(input$wh.file[i,"datapath"])
+          temp.wh.text = unlist(strsplit(temp.wh.text, "\n|     +"))
+          temp.wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "", temp.wh.text)
+          temp.wh.text = temp.wh.text[temp.wh.text != ""]
+          
+          # If we got text, save it to the file
+          if(length(temp.wh.text) > 0) {
+            writeLines(temp.wh.text, con = textract.progress.file())
+          }
           
           # If we didn't get any text, it's a scanned image and we have to use
           # Textract
-          if(length(wh.text) == 0) {
+	  else {
             if(exists("textract_result")) {
               rm(textract_result)
             }
@@ -368,7 +377,8 @@ server <- function(input, output, session) {
                                 Name = filename[i])
               )
             )
-            textract.wait.task = ExtendedTask$new(function(t, jid) {
+            textract.wait.task = ExtendedTask$new(function(t, jid,
+                                                           progress.file) {
               future_promise({
                 textract_result = t$get_document_text_detection(JobId = jid)
                 count = 0
@@ -379,7 +389,7 @@ server <- function(input, output, session) {
                   textract_result = t$get_document_text_detection(JobId = jid)
                 }
                 if(textract_result$JobStatus == "SUCCEEDED") {
-                  wh.text = c()
+                  wh.t = c()
                   get.results = T
                   while(get.results) {
                     temp.wh.text =  purrr::map_chr(textract_result$Blocks,
@@ -393,7 +403,7 @@ server <- function(input, output, session) {
                                                    })
                     temp.wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "",
                                         temp.wh.text)
-                    wh.text = c(wh.text, temp.wh.text[temp.wh.text != ""])
+                    wh.t = c(wh.t, temp.wh.text[temp.wh.text != ""])
                     if(length(textract_result$NextToken) == 0) {
                       get.results = F
                     } else {
@@ -402,44 +412,51 @@ server <- function(input, output, session) {
                     }
                   }
                 }
-                wh.text
+                writeLines(wh.t, con = progress.file)
               })
             })
-            textract.wait.task$invoke(textract, resp$JobId)
-            wh.text.textract = reactive({
-              textract.task$result()
-            })
+            textract.wait.task$invoke(textract, resp$JobId,
+                                      textract.progress.file())
           }
+
+          # When the extracted text is ready, it will be in this file
+          wh.text = reactiveFileReader(1000, session,
+                                       isolate(textract.progress.file()),
+            function(path) {
+              if(file.exists(path)) {
+                t = readLines(path, warn = F)
+                return(t)
+              }
+          })
           
           # Create a dataframe
-	  if(length(wh.text) > 0) {
-            wh.text.for.df = wh.text
-          } else {
-            wh.text.for.df = wh.text.textract()
-          }
-          wh.df = data.frame(WorshipDate = rep(strftime(file.worship.date[i],
-                                                        "%Y-%m-%d"),
-                                               length(wh.text.for.df)),
-                             RawLine = wh.text.for.df)
-          
-          # Write the dataframe to S3 as a csv
-          tryCatch(
-            {
-              if(nrow(wh.df) > 0) {
-                s3.client()$put_object(Bucket = "worship-och-tables",
-                                       Body = charToRaw(format_csv(wh.df)),
-                                       Key = gsub("pdf$", "csv", filename[i]))
-                showNotification("csv successfully saved", type = "message")
-              } else {
-                showNotification("csv could not be saved", type = "error")
-              }
-            },
-            error = function(err) {
-              print(err)
-              showNotification(err, type = "error")
-              showNotification("csv could not be saved", type = "error")
-            }
-          )
+          observe({
+            if(!is.null(wh.text())) {
+              wh.df = data.frame(WorshipDate = rep(strftime(file.worship.date[i],
+                                                            "%Y-%m-%d"),
+                                                   length(wh.text())),
+                                 RawLine = wh.text())
+
+              # Write the dataframe to S3 as a csv
+              tryCatch(
+                {
+                  if(nrow(wh.df) > 0) {
+                    s3.client()$put_object(Bucket = "worship-och-tables",
+                                           Body = charToRaw(format_csv(wh.df)),
+                                           Key = gsub("pdf$", "csv", filename[i]))
+                    showNotification("csv successfully saved", type = "message")
+                  } else {
+                    showNotification("csv could not be saved", type = "error")
+                  }
+                },
+                error = function(err) {
+                  print(err)
+                  showNotification(err, type = "error")
+                  showNotification("csv could not be saved", type = "error")
+                }
+              )
+	    }
+          })
          
         }
         
