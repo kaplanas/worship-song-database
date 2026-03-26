@@ -29,6 +29,20 @@ load.history.panel = tabPanel(
   tableOutput("wh.row.count")
 )
 
+data.dates = tabPanel(
+  "Dates in worship history",
+  tabsetPanel(
+    tabPanel(
+      "This congregation",
+      plotlyOutput("data.dates.me")
+    ),
+    tabPanel(
+      "All congregations",
+      plotlyOutput("data.dates.all")
+    )
+  )
+)
+
 worship.history.table = tabPanel(
   "Table of songs sung",
   DTOutput("my.worship.history")
@@ -152,6 +166,7 @@ topics = tabPanel(
 summary.page = tabPanel("Summary",
                         navlistPanel(
                           load.history.panel,
+                          data.dates,
                           worship.history.table,
                           number.sung.sunday,
                           top.songs,
@@ -334,6 +349,61 @@ populate.song.info = function(db) {
   } else {
     return(NULL)
   }
+}
+
+# Create the graph of worship history dates for this congregation
+data.dates.me = function(wh.df) {
+  df = wh.df %>%
+    filter(is.me) %>%
+    dplyr::select(worship.date) %>%
+    distinct() %>%
+    mutate(worship.day.month = ymd(paste("2000", month(worship.date),
+                                         day(worship.date), sep = "-")),
+           worship.year = year(worship.date),
+	   hover.text = strftime(worship.date, "%b %-d, %Y"))
+  h = (length(unique(df$worship.year)) * 30) + 80
+  df %>%
+    plot_ly(x = ~worship.day.month, y = ~worship.year, text = ~hover.text,
+            type = "scatter", marker = list(color = color.me, size = 15),
+            hovertemplate = paste("%{text}", "<extra></extra>", sep = "<br>"),
+            texttemplate = "", height = h) %>%
+    layout(xaxis = list(title = "Worship date", tickformat = "%b",
+                        ticklabelmode = "period", dtick = "M1" ),
+           yaxis = list(title = "Year", autorange = "reversed"),
+           hoverlabel = list(bgcolor = "white"))
+}
+
+# Create the graph of worship history dates for all congregations
+data.dates.all = function(wh.df) {
+  rgb.me = paste(col2rgb(color.me), collapse = ", ")
+  rgb.other = paste(col2rgb(color.other), collapse = ", ")
+  df = wh.df %>%
+    group_by(worship.date) %>%
+    summarise(n.congregations = n_distinct(congregation.label),
+              has.me = any(is.me),
+              .groups = "drop") %>%
+    mutate(plot.color = paste("rgba(", if_else(has.me, rgb.me, rgb.other), ", ",
+                              n.congregations / max(n.congregations),
+                              ")", sep = ""),
+           worship.day.month = ymd(paste("2000", month(worship.date),
+                                         day(worship.date), sep = "-")),
+           worship.year = year(worship.date),
+	   hover.text = paste(strftime(worship.date, "%b %-d, %Y"), "<br>",
+                              format(n.congregations, big.mark = ",", trim = T),
+                              " congregation",
+                              if_else(n.congregations == 1, "", "s"),
+                              if_else(has.me, ", including this one", ""),
+                              sep = ""))
+  h = (length(unique(df$worship.year)) * 30) + 80
+  df %>%
+    plot_ly(x = ~worship.day.month, y = ~worship.year, text = ~hover.text,
+            type = "scatter", marker = list(color = ~plot.color, size = 15),
+            hovertemplate = paste("%{text}", "<extra></extra>", sep = "<br>"),
+            texttemplate = "", height = h) %>%
+    layout(xaxis = list(title = "Worship date", tickformat = "%b",
+                        ticklabelmode = "period", dtick = "M1" ),
+           yaxis = list(title = "Year", autorange = "reversed"),
+           hoverlabel = list(bgcolor = "white"))
 }
 
 # Create the worship history table

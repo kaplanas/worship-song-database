@@ -41,12 +41,24 @@ theme_set(theme_bw())
 
 # Elements of the UI
 page.title = "Observing Congregational Hymnody"
+page.header = tags$head(tags$link(rel = "stylesheet", type = "text/css",
+                                  href = "styles.css"),
+                        tags$link(rel = "shortcut icon", href = "favicon.ico"),
+                        tags$meta(property = "og:type", content = "website"),
+                        tags$meta(property = "og:url",
+                                  content = "https://och.worshipsongfinder.com/"),
+                        tags$meta(property = "og:title",
+                                  content = "Observing Congregational Hymnody"),
+                        tags$meta(property = "og:image",
+                                  content = "www/wsf_screenshot.png"),
+                        tags$meta(property = "og:description",
+                                  content = "Tool for congregations among the Churches of Christ to track their worship history"))
 
 # Define UI
 ui <- navbarPage(
-  page.title,
-  tags$head(tags$link(rel = "stylesheet", type = "text/css",
-                      href = "styles.css")),
+  title = page.title,
+  header = page.header,
+  theme = bs_theme(bootswatch = "lumen"),
   login.page,
   congregation.page,
   upload.page,
@@ -709,6 +721,16 @@ server <- function(input, output, session) {
         write.csv(file, na = "", row.names = F)
     }
   )
+
+  # Graph of worship history dates for this congregation
+  output$data.dates.me = renderPlotly({
+    data.dates.me(wh.either())
+  })
+
+  # Graph of worship history dates for all congregations
+  output$data.dates.all = renderPlotly({
+    data.dates.all(wh.either())
+  })
 
   # Worship history summary table
   output$my.worship.history = renderDT({
