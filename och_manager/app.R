@@ -29,6 +29,7 @@ source("song_info_tables.R", local = T)
 source("upload_history.R", local = T)
 source("process_history.R", local = T)
 source("summary.R", local = T)
+source("help.R", local = T)
 
 # Placeholder value for unspecified dates
 date.placeholder = 99991231
@@ -44,11 +45,14 @@ page.title = "Observing Congregational Hymnody"
 # Define UI
 ui <- navbarPage(
   page.title,
+  tags$head(tags$link(rel = "stylesheet", type = "text/css",
+                      href = "styles.css")),
   login.page,
   congregation.page,
   upload.page,
   process.page,
-  summary.page
+  summary.page,
+  help.page
 )
 
 #### Server ####
@@ -124,15 +128,15 @@ server <- function(input, output, session) {
     changes = list(edit = c(), insert = F, delete = F)
   )
 
-  # Reactive worship history data
-  wh.progress.file = reactiveVal(paste("progress_files/wh_", session$token,
-                                       ".txt", sep = ""))
+  # Reactive worship history data for all congregations
+  wh.all.progress.file = reactiveVal(paste("progress_files/wh_all_",
+                                           session$token, ".txt", sep = ""))
   wh.all.task = ExtendedTask$new(function(db, start.date, end.date,
                                           congregations.df, song.labels.df) {
     future_promise({
       use_credentials("och-shiny")
-      populate.wh(congregations.df, song.labels.df, start.date, end.date, db,
-                  isolate(wh.progress.file()))
+      populate.wh.all(congregations.df, song.labels.df, start.date, end.date,
+                      db, isolate(wh.all.progress.file()))
     })
   })
   observeEvent(input$load.all.histories, {
@@ -140,14 +144,17 @@ server <- function(input, output, session) {
       showNotification("Song info not ready; try again in a moment",
                        type = "warning")
     } else {
-      wh.progress.bar = shiny::Progress$new()
-      wh.progress.bar$set(message = "Loading worship histories", value = 0)
+      wh.all.progress.bar = shiny::Progress$new()
+      wh.all.progress.bar$set(message = "Loading worship histories", value = 0)
       observe({
-        if(!is.null(wh.prog())) {
-          wh.progress.bar$set(value = wh.prog())
-          if(wh.prog() == 1) {
-            wh.progress.bar$close()
-            file.remove(wh.progress.file())
+        if(!is.null(wh.all.prog())) {
+          wh.all.progress.bar$set(value = wh.all.prog())
+          if(wh.all.prog() == 1) {
+            wh.all.progress.bar$close()
+            file.remove(wh.all.progress.file())
+            output$download.history.all.ui = renderUI({
+              downloadButton("download.history.all", "Download all histories")
+            })
           }
         }
       })
@@ -159,13 +166,74 @@ server <- function(input, output, session) {
   wh.all = reactive({
     wh.all.task$result()
   })
-  wh.prog = reactiveFileReader(100, session, isolate(wh.progress.file()),
+  wh.all.prog = reactiveFileReader(100, session,
+                                   isolate(wh.all.progress.file()),
     function(path) {
       if(file.exists(path)) {
         as.numeric(readLines(path, 1, warn = F))
       }
   })
 
+  # Reactive worship history data for this congregation
+  wh.me.progress.file = reactiveVal(paste("progress_files/wh_me_",
+                                           session$token, ".txt", sep = ""))
+  wh.me.task = ExtendedTask$new(function(db, start.date, end.date,
+                                         congregations.df, song.labels.df) {
+    future_promise({
+      use_credentials("och-shiny")
+      populate.wh.me(congregations.df, song.labels.df, start.date, end.date,
+                     db, isolate(wh.me.progress.file()))
+    })
+  })
+  observeEvent(input$load.my.history, {
+    if(song.table.task$status() != "success") {
+      showNotification("Song info not ready; try again in a moment",
+                       type = "warning")
+    } else {
+      wh.me.progress.bar = shiny::Progress$new()
+      wh.me.progress.bar$set(message = "Loading worship history", value = 0)
+      observe({
+        if(!is.null(wh.me.prog())) {
+          wh.me.progress.bar$set(value = wh.me.prog())
+          if(wh.me.prog() == 1) {
+            wh.me.progress.bar$close()
+            file.remove(wh.me.progress.file())
+            output$download.history.me.ui = renderUI({
+              downloadButton("download.history.me", "Download my history")
+            })
+          }
+        }
+      })
+      wh.me.task$invoke(och.db(), input$view.wh.start.date,
+                        input$view.wh.end.date, congregations(),
+                        song.tables()$song.labels)
+    }
+  })
+  wh.me = reactive({
+    wh.me.task$result()
+  })
+  wh.me.prog = reactiveFileReader(100, session, isolate(wh.me.progress.file()),
+    function(path) {
+      if(file.exists(path)) {
+        as.numeric(readLines(path, 1, warn = F))
+      }
+  })
+
+  # Reactive worship history data
+  wh.either = reactive({
+    tryCatch(
+      {
+        wh.all()
+      },
+      shiny.silent.error = function(e) {
+        wh.me() %>%
+          mutate(congregation.label = congregations()$congregation.label[congregations()$is.me],
+                 is.me = T)
+      }
+    )
+  })
+
+  # Collect topics
   observe({
     if(song.table.task$status() == "success") {
       topic.choices = sort(colnames(song.tables()$song.info))
@@ -283,9 +351,13 @@ server <- function(input, output, session) {
       for(i in 1:nrow(input$wh.file)) {
         
         # Read in as a dataframe
-        wh.df = read_excel(input$wh.file[[i,"datapath"]], skip = 1,
-                           col_names = c("WorshipDate", "Song"),
-                           col_types = c("date", "text"))
+        if(grepl("xlsx?$", input$wh.file[i]$name)) {
+          wh.df = read_excel(input$wh.file[[i,"datapath"]], skip = 1,
+                             col_names = c("WorshipDate", "Song"),
+                             col_types = c("date", "text"))
+        } else if(grepl("csv$", input$wh.file[i]$name)) {
+          wh.df = read.csv(input$wh.file[[i,"datapath"]], header = T)
+        }
         wh.df$WorshipDate = as.Date(wh.df$WorshipDate)
         
         # If the user doesn't want to overwrite previously entered dates,
@@ -425,6 +497,7 @@ server <- function(input, output, session) {
             function(path) {
               if(file.exists(path)) {
                 t = readLines(path, warn = F)
+                file.remove(path)
                 return(t)
               }
           })
@@ -573,7 +646,7 @@ server <- function(input, output, session) {
 
   # Worship history row count
   output$wh.row.count = renderTable({
-    wh.all() %>%
+    wh.either() %>%
       summarise(`Total congregations` = n_distinct(congregation.label),
                 `Total dates` = n_distinct(worship.date),
                 `Total songs` = n_distinct(song.label),
@@ -582,11 +655,38 @@ server <- function(input, output, session) {
       mutate(value = format(value, big.mark = ",", trim = T))
   }, colnames = F)
 
-  # Download worship history for all congregations
-  output$download.history.all = downloadHandler(
+  # Download worship history for this congregation
+  output$download.history.me = downloadHandler(
     filename = function() {
       cong = congregations()$name[congregations()$congregation == current.user()]
       paste(cong, " ", strftime(input$view.wh.start.date, "%b %d %Y"), " - ",
+            strftime(input$view.wh.end.date, "%b %d %Y"), ".csv", sep = "")
+    },
+    content = function(file) {
+      song.info.df = song.tables()$song.info %>%
+        pivot_longer(cols = -c("SongID", "SongName", "Year"),
+                     names_to = "topic", values_to = "about") %>%
+        filter(about) %>%
+        group_by(SongID, Year) %>%
+        arrange(topic) %>%
+        summarise(topics = paste(topic, collapse = ", "), .groups = "drop")
+      wh.me() %>%
+        left_join(song.info.df, by = c("song.id" = "SongID")) %>%
+        dplyr::select(worship_date = worship.date, history_id = history.id,
+                      raw_line = raw.line, processed_record = processed.record,
+                      sunday_morning = sunday.morning, song_id = song.id,
+                      song_instance_id = song.instance.id, notes,
+                      new_song = new.song, song_title = song.title,
+                      song_year = Year, topics) %>%
+        write.csv(file, na = "", row.names = F)
+    }
+  )
+
+  # Download worship history for all congregations
+  output$download.history.all = downloadHandler(
+    filename = function() {
+      paste("worship histories ",
+            strftime(input$view.wh.start.date, "%b %d %Y"), " - ",
             strftime(input$view.wh.end.date, "%b %d %Y"), ".csv", sep = "")
     },
     content = function(file) {
@@ -612,51 +712,51 @@ server <- function(input, output, session) {
 
   # Worship history summary table
   output$my.worship.history = renderDT({
-    req(wh.all())
-    my.wh.table(wh.all())
+    req(wh.either())
+    my.wh.table(wh.either())
   })
 
   # Graph of number of songs sung per Sunday for this congregation
   output$number.sung.sunday.me = renderPlotly({
-    songs.per.sunday.me(wh.all())
+    songs.per.sunday.me(wh.either())
   })
 
   # Graph of number of songs sung per Sunday for all congregations
   output$number.sung.sunday.all = renderPlotly({
-    songs.per.sunday.all(wh.all())
+    songs.per.sunday.all(wh.either())
   })
 
   # Graph most frequently sung songs by congregation for this congregation
   output$top.songs.me = renderPlotly({
-    top.songs.me(wh.all(), input$top.songs.me.n, input$top.songs.me.metric)
+    top.songs.me(wh.either(), input$top.songs.me.n, input$top.songs.me.metric)
   })
 
   # Graph most frequently sung songs by congregation for all congregations
   output$top.songs.all = renderPlotly({
-    top.songs.all(wh.all(), input$top.songs.all.n, input$top.songs.all.metric)
+    top.songs.all(wh.either(), input$top.songs.all.n, input$top.songs.all.metric)
   })
 
   # Graph most frequently sung songs overall
   output$top.songs.overall = renderPlotly({
-    top.songs.overall(wh.all(), input$top.songs.overall.n)
+    top.songs.overall(wh.either(), input$top.songs.overall.n)
   })
 
   # Summary of songs sung once for this congregation
   output$hapaxes.me = renderTable({
-    create.hapax.me.table(wh.all())
+    create.hapax.me.table(wh.either())
   }, colnames = F)
 
   # Table of songs sung once for this congregation
   output$hapax.me.list = renderDT({
-    create.hapax.me.list(wh.all())
+    create.hapax.me.list(wh.either())
   })
 
   # Graph of songs sung once for all congregations
-  output$hapaxes_all_p = renderPlotly({hapaxes.all(wh.all(),
+  output$hapaxes_all_p = renderPlotly({hapaxes.all(wh.either(),
                                                    input$hapaxes.all.metric)})
   output$hapaxes.all = renderUI({
     plotlyOutput("hapaxes_all_p",
-                 height = hapax.all.height(wh.all()))
+                 height = hapax.all.height(wh.either()))
   })
 
   # Display table of songs sung once
@@ -666,13 +766,13 @@ server <- function(input, output, session) {
   })
   output$hapax.all.list = renderDT({
     if(!is.null(hapax.congregation())) {
-      create.hapax.all.list(wh.all(), hapax.congregation())
+      create.hapax.all.list(wh.either(), hapax.congregation())
     }
   })
 
   # Graph song year for this congregation
   output$song.year.me = renderPlotly({
-    song.year.me(wh.all(), song.tables()$song.info)
+    song.year.me(wh.either(), song.tables()$song.info)
   })
 
   # Display table of songs by decade for this congregation
@@ -682,17 +782,17 @@ server <- function(input, output, session) {
   })
   output$year.me.list = renderDT({
     if(!is.null(year.me())) {
-      create.year.me.list(wh.all(), song.tables()$song.info, year.me())
+      create.year.me.list(wh.either(), song.tables()$song.info, year.me())
     }
   })
 
   # Graph song year for all congregations
   output$song_year_all_p = renderPlotly({
-    song.year.all(wh.all(), song.tables()$song.info)
+    song.year.all(wh.either(), song.tables()$song.info)
   })
   output$song.year.all = renderUI({
     plotlyOutput("song_year_all_p",
-                 height = song.year.all.height(wh.all())$plot.height)
+                 height = song.year.all.height(wh.either())$plot.height)
   })
 
   # Display table of songs by decade for all congregations
@@ -703,18 +803,19 @@ server <- function(input, output, session) {
   })
   output$year.all.list = renderDT({
     if(!is.null(year.all())) {
-      create.year.all.list(wh.all(), song.tables()$song.info, year.all(),
+      create.year.all.list(wh.either(), song.tables()$song.info, year.all(),
                            congregation.year())
     }
   })
 
   # Graph of topics for this congregation
   output$topics_me_p = renderPlotly({
-    topics.me(wh.all(), song.tables()$song.info, input$topics.me.metric)
+    topics.me(wh.either(), song.tables()$song.info, input$topics.me.metric)
   })
   output$topics.me = renderUI({
     plotlyOutput("topics_me_p",
-                 height = topics.me.height(wh.all(), song.tables()$song.info))
+                 height = topics.me.height(wh.either(),
+                                           song.tables()$song.info))
   })
 
   # Display table of songs for this congregation by clicked topic
@@ -725,27 +826,27 @@ server <- function(input, output, session) {
   })
   output$topics.me.list = renderDT({
     if(!is.null(topics.me.topic())) {
-      create.topics.me.table(wh.all(), song.tables()$song.info,
+      create.topics.me.table(wh.either(), song.tables()$song.info,
                              topics.me.topic())
     }
   })
 
   # Graph of topics for all congregations
   output$topics_all_p = renderPlotly({
-    topics.all(wh.all(), song.tables()$song.info, input$topics.all.topic,
+    topics.all(wh.either(), song.tables()$song.info, input$topics.all.topic,
                input$topics.all.metric)
   })
   output$topics.all = renderUI({
     plotlyOutput("topics_all_p",
-                 height = topics.all.height(wh.all(),
+                 height = topics.all.height(wh.either(),
                                             song.tables()$song.info,
                                             input$topics.all.topic))
   })
 
   # Display table of songs by topic
   output$topics.all.list = renderDT({
-    if(!is.null(wh.all())) {
-      create.topics.all.table(wh.all(), song.tables()$song.info,
+    if(!is.null(wh.either())) {
+      create.topics.all.table(wh.either(), song.tables()$song.info,
                               input$topics.all.topic)
     }
   })

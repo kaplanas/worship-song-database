@@ -1,0 +1,52 @@
+<h3>Entering worship history manually</h3>
+<p>Entering one Sunday's worth of data manually takes just a few minutes.  If you want to maintain your congregation's worship history on an ongoing basis, it's easiest to enter the order of worship by hand each week.  The basic process is as follows:</p>
+<ol>
+  <li>Go to the "Process worship history" tab.</li>
+  <li>Choose the date for which you want to enter songs.<li>
+  <li>Click in the cell in the "Song" column and start typing the title of the first song you want to enter.  Select the correct song from the drop-down list.</li>
+  <li>If you know which arrangement your congregation sang, click in the cell under the "Song instance" column and select the correct song instance.</li>
+  <li>Right-click anywhere in the first row and choose "Insert row above" or "Insert row below".  (It doesn't matter which; new rows are automatically moved to the bottom of the table.)</li>
+  <li>Repeat until you've entered all the songs for that date.</li>
+  <li>Check the "Processed" column for all entries you're finished with.  (This will ordinarily be all of them, unless you have reason to want to come back to some record later.  The "unprocessed" state is intended for uploaded files that haven't yet been manually reviewed.)</li>
+  <li>If any of the songs you entered are <i>not</i> for the regular Sunday morning worship service, make sure that column is unchecked for those songs.</li>
+  <li>Click "Save changes".</li>
+</ol>
+<h3>More about songs</h3>
+<p>A "song" is a unique combination of words and music.  Sometimes there's a fuzzy line between "two different songs" and "two versions of the same song".  The database linked to this site considers the following situations to be two different songs:</p>
+<ul>
+  <li><b>Songs that have the same title but are otherwise completely different.</b>  Song titles in this case are disambiguated with the last name of the artist: "Thank You, Lord (Mabry)" and "Thank You, Lord (Jernigan)".</li>
+  <li><b>Songs with the same words but different tunes.</b>  If the tunes have names, song titles in this case are disambiguated with the name of the tune: "The Lord's My Shepherd (Orlington)" and "The Lord's My Shepherd (Crimond)".  For tunes that do not have a name, the last name of the composer is used instead: "I Heard the Voice of Jesus Say (Spohr)".</li>
+  <li><b>Songs to which a new chorus has been added.</b>  The song with the new chorus is disambiguated with a line from the chorus; this is usually the accepted title of the song anyway, or close to it: "Amazing Grace (My Chains Are Gone)", "Just as I Am (I Come Broken)".</li>
+</ul>
+<p>By contrast, the following situations are considered to be the <i>same</i> song:</p>
+<ul>
+  <li><b>Songs to which extra verses were added later.</b>  These are entered as different instances of the same song, each connected to the appropriate set of lyrics.  This is a not uncommon situation for songs both old and new; for example, <i>Songs for Worship and Praise</i> prints additional verses for "We Shall Assemble", and many hymnals print lyrics for "Father of Mercies" that are a composite from multiple authors.</li>
+  <li><b>Songs translated from one language into another.</b>  These are entered as different instances of the same song, each connected to the lyrics in the appropriate language.  As long as the two sets of lyrics are reasonably close in meaning, the songs are considered to be the same.  If the lyrics are completely different in meaning, the songs are considered to be two separate songs that happen to use the same tune.  An example of the latter is <i>Cantos del Camino</i>'s "Iglesia de Cristo", which uses the same tune as "O Worship the King" but is about a completely different topic.</li>
+</ul>
+<p>The drop-down list of songs in the processing table shows the song title in bold, followed by the first line of the chorus (if there is one) or first verse (otherwise).  The purpose of this lyrics snippet is to help you identify which song is which in cases where the title does not make it obvious.</p>
+<p>If the song was originally written in English, Spanish, or Russian, the song title is shown in that language; otherwise, the song title is shown in English.  The lyrics snippet is always in English, if English lyrics are available.</p>
+<h3>More about song instances</h3>
+<p>A "song instance" is a unique presentation of a song.  It's not quite the same thing as an entry in a hymnal, because two different hymnals might print the same song in exactly the same way.  The database linked to this site considers two printings to be distinct song instances in the following situations:</p>
+<ul>
+  <li><b>Different titles.</b>  If one song is printed as "10,000 Reasons" and the other as "10,000 Reasons (Bless the Lord)", they're record as separate instances with their respective titles.</li>
+  <li><b>Different key or time signatures.</b></li>
+  <li><b>Different arrangements.</b>  There's a fuzzy boundary here.  If two songs are printed with completely different arrangements (e.g., the Hallal and Zoe versions of "Lord, Reign in Me"), the decision is clear: they're separate instances.  But if the only difference between two printings is that, for example, the altos drop to "so" on the last note in one version but remain on "do" in the other version, that difference is not large enough to make it worth calling them separate instances.  The rule of thumb used here is "if a singer (of any part) is used to one version of this song, would that person be surprised&mdash;potentially to the point of confusion&mdash;by the other version?"</li>
+  <li><b>Different lyrics.</b>  The criterion here is not whether the two printings include exactly the same set of verses.  Rather, two versions are considered to be separate instances if one contains an entirely different set of lyrics, written by a different person or at a different time, in addition to whatever lyrics the two instances have in common.  For example, printings of "Humble Yourselves" that include verses from "Amazing Grace" are distinct instances from those that do not.</li>
+</ul>
+<p>After you select a song in the processing table, you can optionally select a specific song instance.  Song instances in this second drop-down show the title, key and time signatures, and songbooks in which they appear.  (The number shown along with the song instance is an internal database ID.)</p>
+<p>It's up to you whether you want to include song instances in your worship history.  On the one hand, it's extra work, and there's no guarantee that your congregation sang exactly what was written in that particular arrangement.  (I have never seen a congregation sing "You're the One" as printed in <i>Songs of Faith and Praise</i>, even when singing out of that book.)  On the other hand, linking to specific song instances gives us a lot more information about what kinds of arrangements are being sung.  For example, it would be interesting to know how often the Keith Lancaster arrangement of "Awesome God" is sung versus ordinary non-polyphonic versions, and it would be interesting to know how many congregations sing arrangements that involve a soloist.</p>
+<p>If you sing a song in a language other than English, please <i>do</i> specify a song instance in that language.  Otherwise, the assumption is that you sang the song in English.</p>
+<h3>Ambiguous songs</h3>
+<p>If you're entering worship history from a while ago, you might encounter situations where you aren't sure exactly which song your congregation sang.  For example, if you have an old bulletin that lists "Thank You, Lord" in the order of worship, but your bulletins don't list hymnal numbers and your congregation sings both songs by that name, you may not be able to determine which song was actually sung.</p>
+<p>In this situation, leave the song itself blank and put a note in the "Notes" column.  If it's a simple case of two songs with the same title, just put the ambiguous title.  In other situations, you might need to list out the candidate songs.  For example, if an old bulletin lists "Peace like a River", you might put "It Is Well with My Soul? I've Got Peace like a River?" in the "Notes" column if both of those songs are possibilities.</p>
+<h3>Songs that aren't in the database yet</h3>
+<p>If your congregation sang a song that doesn't appear in the drop-down menu, describe it in the "New song needed" column.  In addition to the title, it's particularly helpful if you include information that will help us unambiguously identify the song&mdash;artist name(s), a link to a video, anything along those lines.</p>
+<h3>Singing the same song more than once</h3>
+<p>It's fine to list the same song more than once for the same date.  There are at least four reasons this might happen:</p>
+<ul>
+  <li>The congregation sang (parts of) the song more than once: two verses for the bread and two for the cup, or a reprise of the chorus at the end of service, or something similar.</li>
+  <li>The congregation sang the song in two languages (e.g., English and Spanish).  List the song twice and pick the appropriate instance for each entry.</li>
+  <li>Your congregation has more than one worship service, and the two services sang (some of) the same songs.</li>
+  <li>You uploaded a spreadsheet that mistakenly listed the same song twice for the same date.</li>
+</ul>
+<p>Regardless of the situation, all of the summary tables and graphs on this site de-duplicate songs by date.  I.e., if you list "O Sacred Head" twice for the same Sunday, we will count it as one occasion of singing that song.  However, both records are in your worship history table, and you're welcome to download your data and analyze duplicate songs in whatever way is appropriate for your congregation's situation.</p>

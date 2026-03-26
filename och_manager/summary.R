@@ -8,14 +8,25 @@ color.other = "#800080"
 load.history.panel = tabPanel(
   "Load worship histories",
   fluidRow(
+    style = "height: 100px;",
     column(4, uiOutput("view.wh.start.date")),
-    column(4, uiOutput("view.wh.end.date")),
-    column(1,
-           actionButton("load.all.histories",
-                        label = "Load worship history for other congregations"))
+    column(4, uiOutput("view.wh.end.date"))
   ),
-  tableOutput("wh.row.count"),
-  downloadButton("download.history.all", "Download history")
+  fluidRow(
+    style = "height: 100px;",
+    column(4,
+           actionButton("load.my.history",
+                        label = "Load worship history for this congregation")),
+    column(4, uiOutput("download.history.me.ui"))
+  ),
+  fluidRow(
+    style = "height: 100px;",
+    column(4,
+           actionButton("load.all.histories",
+                        label = "Load worship history for all congregations")),
+    column(4, uiOutput("download.history.all.ui"))
+  ),
+  tableOutput("wh.row.count")
 )
 
 worship.history.table = tabPanel(
@@ -168,9 +179,75 @@ get.history.dates = function(current.dates.df, start.current, end.current) {
               end = selected.end.date))
 }
 
-# Populate the worship history summary table
-populate.wh = function(congregations.df, song.labels.df, view.wh.start.date,
-                       view.wh.end.date, db, progress.file) {
+# Populate the worship history summary table for this congregation
+populate.wh.me = function(congregations.df, song.labels.df, view.wh.start.date,
+                          view.wh.end.date, db, progress.file) {
+  if(!is.null(db)) {
+    min.year = as.numeric(format(view.wh.start.date, "%Y"))
+    max.year = as.numeric(format(view.wh.end.date, "%Y"))
+    min.history.id = as.numeric(paste(format(view.wh.start.date, "%Y%m%d"),
+                                      "0000", sep = ""))
+    max.history.id = as.numeric(paste(format(view.wh.end.date, "%Y%m%d"),
+                                      "9999", sep = ""))
+    cong.id = congregations.df$congregation[congregations.df$is.me]
+    cong.name = congregations.df$name[congregations.df$is.me]
+    key.expr = "Congregation = :c AND HistoryID BETWEEN :h1 AND :h2"
+    filter.expr = "ProcessedRecord = :t AND SundayMorning = :t"
+    df = map_dfr(
+      min.year:max.year,
+      function(y) {
+        min.id = min.history.id
+        if(y > min.year) {
+          min.id = as.numeric(paste(y, "01010000", sep = ""))
+        }
+        max.id = max.history.id
+        if(y < max.year) {
+          max.id = as.numeric(paste(y, "12319999", sep = ""))
+        }
+        attr.vals = list(`:c` = list(S = cong.id),
+                         `:h1` = list(N = min.id),
+                         `:h2` = list(N = max.id),
+                         `:t` = list(BOOL = T))
+        df = query.dynamodb(db = db, table.name = "och_history", 
+                            expression.attribute.values = attr.vals,
+                            key.condition.expression = key.expr,
+                            projection.expression = "WorshipDate, HistoryID, RawLine, ProcessedRecord, SundayMorning, SongID, SongInstanceID, Notes, NewSong",
+                            filter.expression = filter.expr)
+        writeLines(as.character((y - min.year + 1) / (max.year - min.year + 1)),
+                   con = progress.file)
+        df
+      }
+    )
+    for(cn in c("RawLine", "SongID", "SongInstanceID", "Notes", "NewSong")) {
+      if(!(cn %in% colnames(df))) {
+        if(cn %in% c("SongID", "SongInstanceID")) {
+          df[,cn] = NA
+        } else {
+          df[,cn] = NA_character_
+        }
+      }
+    }
+    df = df %>%
+      left_join(song.labels.df, by = "SongID") %>%
+      mutate(worship.date = ymd(as.character(WorshipDate)),
+             song.label = coalesce(SongLabel, NewSong, Notes),
+             song.title = coalesce(gsub(".*<b>(.*)</b>.*", "\\1", SongLabel),
+                                   paste("(", coalesce(NewSong, Notes), ")",
+                                         sep = ""))) %>%
+      dplyr::select(worship.date, history.id = HistoryID, raw.line = RawLine,
+                    processed.record = ProcessedRecord,
+                    sunday.morning = SundayMorning, song.id = SongID,
+                    song.instance.id = SongInstanceID, notes = Notes,
+                    new.song = NewSong, song.label, song.title)
+    return(df)
+  } else {
+    return(NULL)
+  }
+}
+
+# Populate the worship history summary table for all congregations
+populate.wh.all = function(congregations.df, song.labels.df, view.wh.start.date,
+                           view.wh.end.date, db, progress.file) {
   if(!is.null(db)) {
     min.history.id = as.numeric(paste(format(view.wh.start.date, "%Y%m%d"),
                                       "0000", sep = ""))
@@ -366,7 +443,7 @@ songs.per.sunday.all = function(wh.df) {
             hovertemplate = paste("<b>%{y}</b>", "%{text}",
                                   "<extra></extra>", sep = "<br>"),
             texttemplate = "", type = "bar", orientation = "h",
-            height = 20 + (20 * length(unique(df$congregation.label)))) %>%
+            height = 80 + (20 * length(unique(df$congregation.label)))) %>%
     layout(barmode = "stack",
            xaxis = list(title = "Number of songs sung on one Sunday",
                         tickvals = seq(from = 0.5,
@@ -404,7 +481,7 @@ top.songs.me = function(wh.df, top.n, metric.name) {
                                            "Percent of songs sung" ~
                                              "% of songs sung"),
                                 sep = ""))
-    plot.height = 20 + (top.n * 50)
+    plot.height = 80 + (top.n * 50)
     df %>%
       plot_ly(x = ~metric, y = ~song.label, type = "bar",
               marker = list(color = color.me),
@@ -450,7 +527,7 @@ top.songs.all = function(wh.df, top.n, metric.name) {
     arrange(desc(mean.metric)) %>%
     pull(congregation.label)
   n.rows = ceiling(length(all.congregations) / 3)
-  plot.height = 20 + (n.rows * (100 + (top.n * 40)))
+  plot.height = 80 + (n.rows * (100 + (top.n * 40)))
   all.subplots = lapply(
     all.congregations,
     function(cl) {
@@ -530,7 +607,7 @@ top.songs.overall = function(wh.df, top.n) {
                               format(song.dates, big.mark = ",", trim = T),
                               " time", if_else(song.dates == 1, "", "s"),
                               " total", sep = ""))
-  plot.height = 20 + (top.n * 50)
+  plot.height = 80 + (top.n * 50)
   df %>%
     plot_ly(x = ~times.per.year, y = ~song.jitter, type = "scatter",
             text = ~hover.text,
@@ -600,7 +677,7 @@ create.hapax.me.list = function(wh.df) {
 
 # Determine the height of the hapax graph
 hapax.all.height = function(wh.df) {
-  h = (length(unique(wh.df$congregation.label)) * 20) + 20
+  h = (length(unique(wh.df$congregation.label)) * 20) + 80
 }
 
 # Create the graph of songs sung once for all congregations
@@ -751,7 +828,7 @@ create.year.me.list = function(wh.df, song.info.df, current.year) {
 song.year.all.height = function(wh.df) {
   all.congregations = length(unique(wh.df$congregation.label))
   r = ceiling(all.congregations / 3)
-  h = 20 + (r * 240)
+  h = 80 + (r * 240)
   list(n.rows = r, plot.height = h)
 }
 
@@ -972,58 +1049,62 @@ topics.all = function(wh.df, song.info.df, topic.name, metric.name) {
            total.singings = n_distinct(paste(song.id, worship.date),
                                        na.rm = T)) %>%
     ungroup() %>%
-    semi_join(topic.songs.df, by = c("song.id" = "SongID")) %>%
-    group_by(congregation.label, is.me, total.dates, total.songs,
-             total.singings) %>%
-    summarise(n.songs = n_distinct(song.id, na.rm = T),
-              n.singings = n_distinct(paste(song.id, worship.date), na.rm = T),
-              .groups = "drop") %>%
-    mutate(mn = metric.name,
-           metric = case_match(mn,
-                               "Number of songs" ~ n.songs,
-                               "Number of times sung per year" ~
-                                 (n.singings / total.dates) * 52,
-                               "Percent of worship history" ~
-                                 (n.singings / total.singings) * 100),
-           congregation.color = if_else(is.me, color.me, color.other),
-           congregation.label = fct_reorder(congregation.label, metric),
-           hover.text = paste("<b>", congregation.label, "</b><br>",
-                              format(total.dates, big.mark = ",", trim = T),
-                              " date", if_else(total.dates == 1, "", "s"),
-                              "<br>",
-                              format(round(metric,
-                                           if_else(mn == "Number of songs", 0,
-                                                   2)),
-                                     nsmall = if_else(mn == "Number of songs",
-                                                      0, 2), trim = T),
-                              case_match(mn,
-                                         "Number of songs" ~
-                                           paste(" song",
-                                                 if_else(metric == 1, "", "s"),
-                                                 sep = ""),
-                                         "Number of times sung per year" ~
-                                           " times sung per year",
-                                         "Percent of worship history" ~
-                                           "% of worship history"),
-                              sep = ""))
-  x.title = ""
-  if(metric.name == "Number of songs") {
-    x.title = "Number of songs on this topic"
-  } else if(metric.name == "Number of times sung per year") {
-    x.title = "Number of times per year a song on this topic was sung"
-  } else if(metric.name == "Percent of worship history") {
-    x.title = "Percent of worship history"
+    semi_join(topic.songs.df, by = c("song.id" = "SongID"))
+  if(nrow(df) > 0) {
+    df = df %>%
+      group_by(congregation.label, is.me, total.dates, total.songs,
+               total.singings) %>%
+      summarise(n.songs = n_distinct(song.id, na.rm = T),
+                n.singings = n_distinct(paste(song.id, worship.date), na.rm = T),
+                .groups = "drop") %>%
+      mutate(mn = metric.name,
+             metric = case_match(mn,
+                                 "Number of songs" ~ n.songs,
+                                 "Number of times sung per year" ~
+                                   (n.singings / total.dates) * 52,
+                                 "Percent of worship history" ~
+                                   (n.singings / total.singings) * 100),
+             congregation.color = if_else(is.me, color.me, color.other),
+             congregation.label = fct_reorder(congregation.label, metric),
+             hover.text = paste("<b>", congregation.label, "</b><br>",
+                                format(total.dates, big.mark = ",", trim = T),
+                                " date", if_else(total.dates == 1, "", "s"),
+                                "<br>",
+                                format(round(metric,
+                                             if_else(mn == "Number of songs", 0,
+                                                     2)),
+                                       nsmall = if_else(mn == "Number of songs",
+                                                        0, 2), trim = T),
+                                case_match(mn,
+                                           "Number of songs" ~
+                                             paste(" song",
+                                                   if_else(metric == 1, "",
+                                                           "s"),
+                                                   sep = ""),
+                                           "Number of times sung per year" ~
+                                             " times sung per year",
+                                           "Percent of worship history" ~
+                                             "% of worship history"),
+                                sep = ""))
+    x.title = ""
+    if(metric.name == "Number of songs") {
+      x.title = "Number of songs on this topic"
+    } else if(metric.name == "Number of times sung per year") {
+      x.title = "Number of times per year a song on this topic was sung"
+    } else if(metric.name == "Percent of worship history") {
+      x.title = "Percent of worship history"
+    }
+    df %>%
+      plot_ly(x = ~metric, y = ~congregation.label, text = ~hover.text,
+              marker = list(color = ~congregation.color),
+              type = "bar", orientation = "h",
+              hovertemplate = paste("%{text}", "<extra></extra>", sep = "<br>"),
+              texttemplate = "", source = "topics.all.plot",
+              height = topics.all.height(wh.df, song.info.df, topic.name)) %>%
+      layout(xaxis = list(title = x.title),
+             yaxis = list(title = ""),
+             hoverlabel = list(bgcolor = "white"))
   }
-  df %>%
-    plot_ly(x = ~metric, y = ~congregation.label, text = ~hover.text,
-            marker = list(color = ~congregation.color),
-            type = "bar", orientation = "h",
-            hovertemplate = paste("%{text}", "<extra></extra>", sep = "<br>"),
-            texttemplate = "", source = "topics.all.plot",
-            height = topics.all.height(wh.df, song.info.df, topic.name)) %>%
-    layout(xaxis = list(title = x.title),
-           yaxis = list(title = ""),
-           hoverlabel = list(bgcolor = "white"))
 }
 
 # Create the table of songs by topic

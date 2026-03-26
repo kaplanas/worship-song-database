@@ -1,0 +1,86 @@
+<h3>Uploading vs. entering data</h3>
+<p>You can enter songs directly in the "Process worship history" tab, and this is probably the best method to use on a weekly basis.  But if you want to add a lot of history, it may be more convenient to do a bulk upload.  You'll still need to do some post-processing by hand, but a bulk upload can do a first pass on your data fairly quickly.  There are two ways to do this.</p>
+<h3>Uploading bulletins</h3>
+<p>You can upload bulletins to the site.  Follow these steps:</p>
+<ol>
+  <li>
+    <b>Prepare the bulletins.</b>
+    <ul>
+      <li>All files must be in <code>.pdf</code> format.</li>
+      <li>You must have one file per Sunday.</li>
+      <li>The name of each file must include the date of that Sunday, and may include other material as well.  The uploader tries a variety of date formats, but the safest option is YYYY-MM-DD (e.g., <code>Main Street Church of Christ 2026-03-22 Bulletin.pdf</code>).  If you use month names, it's safer to write out the names in full than to user abbreviations (e.g., <code>Main Street Bulletin February 22 2026.pdf</code>).</li>
+      <li>If your bulletins are long, we recommend that you upload <i>only</i> the page with the order or worship.  The more text there is in the file you upload, the longer it will take to process.  Very long bulletins may time out and never finish.</li>
+    </ul>
+  </li>
+  <li>
+    <b>Upload the bulletins.</b>
+    <ol>
+      <li>Go to the "Upload worship history" tab.</li>
+      <li>Choose "Bulletin" from the "File type" dropdown menu.</li>
+      <li>Click "Choose file..." and select the bulletin file(s) you prepared.</li>
+      <li>If you check the "Overwrite dates..." box and any bulletin is for a date for which you already have data, that date will be completely overwritten with whatever is in the bulletin.  If you do not check the box, any such bulletin will be skipped.</li>
+      <li>Click "Save file".</li>
+    </ol>
+  </li>
+  <li>
+    <b>Wait.</b>
+    <ol>
+      <li>The site first extracts text from the bulletin files and saves each one as a separate <code>.csv</code> file (one row per line of text).  You will get a notification for each file.</li>
+      <ul>
+        <li>The site first attempts to extract ordinary text from the bulletin file&mdash;i.e., text that you could highlight and copy if you had the pdf open.  If this is successful, it's very fast.</li>
+	<li>If <i>no</i> text can be extracted from the pdf in this way, the site treats each page as an image and does optical character recognition.  This takes a little longer.</li>
+	<li>If a pdf processes very quickly but you don't see the text with your worship history, this means that some of the text in the bulletin (including, crucially, the text with the song titles) is in a format that the site can't read.  If this happens, you should try another method.  You could enter the songs manually; save the pdf in a different format (if you have access to the source file/program); or take a screenshot of the worship history, save that as a pdf, and upload that.</li>
+      </ul>
+      <li>Next, the site does a preliminary run matching lines in the file to song titles.  This can take a while, and you will <i>not</i> get a notification when this process is finished.  Go get a drink of water; come back in a few minutes and click "Refresh data" in the "Process worship history" tab&mdash;new records will appear there after they're processed.</li>
+    </ol>
+  </li>
+  <li><b>Do manual post-processing.</b>  See below.</li>
+</ol>
+<h3>Uploading spreadsheets</h3>
+<p>Instead of uploading a bunch of bulletin files, you can upload a handful of spreadsheets.  If you're already tracking your congregation's worship history in a spreadsheet, this is probably the easiest method.  Follow these steps:</p>
+<ol>
+  <li>
+    <b>Prepare the spreadsheets.</b>
+    <ul>
+      <li>All files must be in either <code>.csv</code>, <code>.xls</code>, or <code>.xlsx</code> format.</li>
+      <li>Filenames do not matter.  Each file will be saved with a new name (your congregation's name and the timestamp when the file was uploaded).</li>
+      <li>Each file must have exactly the following format:</li>
+      <table>
+        <tr><th>WorshipDate</th><th>Song</th></tr>
+        <tr><td>2026-02-22</td><td>Amazing Grace</td></tr>
+        <tr><td>2026-02-22</td><td>In Christ Alone</td></tr>
+        <tr><td>2026-02-23</td><td>The Greatest Commmands</td></tr>
+        <tr><td>...</td><td>...</td></tr>
+      </table>
+      <li>The more data your spreadsheet has, the longer it will take to process.  If your file is too large, it may time out and never finish.  Consider splitting up long spreadsheets into separate files with about six months of data each.</li>
+    </ul>
+  </li>
+  <li>
+    <b>Upload the spreadsheets.</b>
+    <ol>
+      <li>Go to the "Upload worship history" tab.</li>
+      <li>Choose "Spreadsheet" from the "File type" dropdown menu.</li>
+      <li>Click "Choose file..." and select the spreadsheet file(s) you prepared.</li>
+      <li>If you check the "Overwrite dates..." box and your spreadsheet contains any dates for which you already have data, those dates will be entirely overwritten.  If you do <i>not</i> check the box, any such dates will be skipped (but other dates in the spreadsheet will be processed).  <b>This means that the worship history for a given date must be contained within a single spreadsheet; you can't split songs from a single date across multiple files.</b></li>
+      <li>Click "Save file".</li>
+    </ol>
+  </li>
+  <li>
+    <b>Wait.</b>
+    <ol>
+      <li>For each file, you will get a notification when the file has saved successfully.  This happens very quickly.</li>
+      <li>The site does a preliminary run matching lines in the file to lines in the song.  This can take a while, and you will not get a notification when this process is finished.  Take a breath, go get a drink of water, and come back in a few minutes and click "Refresh data" in the "Process worship history" tab&mdash;new records will appear there after they're processed.</li>
+    </ol>
+  </li>
+  <li><b>Do manual post-processing.</b>  See below.</li>
+</ol>
+<h3>Post-processing</h3>
+<p>When you upload data using one of these methods, the site will populate your worship history table with a preliminary list of songs.  For each line in the file, it uses fuzzy string matching to choose the song whose title is most similar to that line.  This matching process uses <i>only</i> the letters in the string; it doesn't know anything about the meanings of the words.  (It does check some alternative song titles&mdash;e.g., "When We All Get to Heaven" and "Sing the Wondrous Love of Jesus"&mdash;but only if those titles have been used in some hymnal.)</p>
+<p>This means that you will need to check your worship history table and correct errors from the automatic process.  The table in the "Process worship history" tab shows each raw line that was extracted from your bulletin or spreadsheet next to the song it was matched to, if any.  Any of the following kinds of errors can occur:</p>
+<ul>
+  <li><b>Wrong song.</b>  If the song name was misspelled in your uploaded file or otherwise different from the expected title of the song, or if the line contained extra words besides the song title, the automatic matching process may misidentify the song.  For example, INSERT GOOD EXAMPLE HERE.</li>
+  <li><b>Ambiguous song.</b>  If two or more songs have the same title, the matching process has no way to know which one your congregation actually sang; it will just pick one.  For example, if your bulletin lists "Thank You, Lord", the matching process will assign that line to Gary Mabry's song, not Dennis Jernigan's song.  If your congregation in fact sang the Jernigan song, you will need to correct that record.  See under "Entering data" for more on ambiguous song titles.</li>
+  <li><b>Missing song.</b>  The automatic process will return <i>no</i> song if no title matches the line closely enough.  For example, if your bulletin contains the line "Song before the Lord's Supper: Come Share the Lord", that will not match any song title closely enough; the process is not smart enough to figure out which part of the line is the song title and which part is other material.  You will need to check for lines like this and fill in the correct song.</li>
+  <li><b>Not a song.</b>  Your bulletin may contain lines that happen to be song titles (or similar to song titles) but are not songs that your congregation actually sang.  For example, if your bulleting contains the line "Communion" to indicate the point in the service when the Lord's Supper occurs, that line will be matched to the song titled "Communion".  You will need to check for lines like this and remove the song.</li>
+</ul>
+<p>New entries from your uploaded files are added to your worship history table with the "Processed" column unchecked.  Check off records in the table as you process them.</p>
