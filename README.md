@@ -11,7 +11,7 @@ This project consists of four parts:
 
 If you want to download the database yourself and explore, you can find the raw data under [database_files](database_files).
 
-Warning: this is <i>not</i> just a single flat table!  Check out the ERD for a guide to how things are structured.  It's not quite 3NF, but it's close.
+Warning: this is <i>not</i> just a single flat table!  Check out the [ERD](database_files/wsdb_erd.png) for a guide to how things are structured.  It's not quite 3NF, but it's close.
 
 - If you're comfortable in (My)SQL, you can get a [dump](database_files/wsdb_dump.sql) of the database.
 - If you just want to look at the raw tables with low overhead, you can get a [zip file](database_files/wsdb_csvs.zip) of each raw table in as a csv.  (Not explicitly shown in the [ERD](database_files/wsdb_erd.png) is the fact that each many-to-many relationship&mdash;and there are a <i>lot</i> of them&mdash;gets is own bridge table.)
