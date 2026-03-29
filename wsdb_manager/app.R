@@ -10,7 +10,7 @@ library(aws.signature)
 library(aws.s3)
 library(readr)
 library(paws)
-
+library(bslib)
 
 #### Useful stuff ####
 
@@ -49,6 +49,17 @@ show.changes.saved = function(success, db.table = NULL, err.msg = NULL) {
 
 # Elements of the UI
 page.title = "Worship Song Database"
+page.header = tags$head(tags$link(rel = "shortcut icon", href = "/favicon.ico",
+                                  type = "image/x-icon"),
+                        tags$meta(property = "og:type", content = "website"),
+                        tags$meta(property = "og:url",
+                                  content = "https://wsdb.worshipsongfinder.com/"),
+                        tags$meta(property = "og:title",
+                                  content = "Worship Song Database Manager"),
+                        tags$meta(property = "og:image",
+                                  content = "https://wsdb.worshipsongfinder.com/wsdb_screenshot.png"),
+                        tags$meta(property = "og:description",
+                                  content = "Tool for managing the worship song database"))
 login.page = tabPanel("Log in",
                       tags$head(tags$script('
                                 var dimension = [0, 0];
@@ -69,7 +80,9 @@ login.page = tabPanel("Log in",
 
 # Define UI
 ui <- navbarPage(
-  page.title,
+  title = page.title,
+  theme = bs_theme(bootswatch = "lumen"),
+  header = page.header,
   login.page,
   tables.page,
   alternative.tunes.page,

@@ -43,14 +43,15 @@ theme_set(theme_bw())
 page.title = "Observing Congregational Hymnody"
 page.header = tags$head(tags$link(rel = "stylesheet", type = "text/css",
                                   href = "styles.css"),
-                        tags$link(rel = "shortcut icon", href = "favicon.ico"),
+                        tags$link(rel = "shortcut icon", href = "/favicon.ico",
+                                  type = "image/x-icon"),
                         tags$meta(property = "og:type", content = "website"),
                         tags$meta(property = "og:url",
                                   content = "https://och.worshipsongfinder.com/"),
                         tags$meta(property = "og:title",
                                   content = "Observing Congregational Hymnody"),
                         tags$meta(property = "og:image",
-                                  content = "www/wsf_screenshot.png"),
+                                  content = "https://och.worshipsongfinder.com/och_screenshot.png"),
                         tags$meta(property = "og:description",
                                   content = "Tool for congregations among the Churches of Christ to track their worship history"))
 

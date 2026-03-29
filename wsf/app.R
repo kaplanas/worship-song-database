@@ -5,6 +5,7 @@ library(shinyWidgets)
 library(RColorBrewer)
 library(paws)
 library(aws.signature)
+library(bslib)
 
 #### Useful initial settings ####
 
@@ -21,7 +22,6 @@ source("R_files/create_panels.R", local = T)
 
 # Panels we might or might not include in the UI
 page.title = "Worship Song Finder"
-page.theme = "theme.css"
 search.page = tabPanel("Search for songs",
                        useShinyjs(),
                        sidebarLayout(
@@ -115,21 +115,23 @@ help.page = tabPanel("Help",
                      )
             )
 
-page.header = tags$head(tags$link(rel = "shortcut icon", href = "favicon.ico"),
+page.header = tags$head(tags$link(rel = "stylesheet", type = "text/css",
+                                  href = "theme.css"),
+                        tags$link(rel = "shortcut icon", href = "favicon.ico"),
                         tags$meta(property = "og:type", content = "website"),
                         tags$meta(property = "og:url",
-                                  content = "https://worshipsongfinder.com/worship-song-finder/"),
+                                  content = "https://wsf.worshipsongfinder.com/"),
                         tags$meta(property = "og:title",
                                   content = "Worship Song Finder"),
                         tags$meta(property = "og:image",
-                                  content = "https://worshipsongfinder.com/worship-song-finder/wsf_screenshot.png"),
+                                  content = "https://wsf.worshipsongfinder.com/wsf_screenshot.png"),
                         tags$meta(property = "og:description",
                                   content = "Search tool for worship songs in the hymnody of the Churches of Christ"))
 
 # Define UI
 ui <- navbarPage(
-  page.title,
-  theme = page.theme,
+  title = page.title,
+  theme = bs_theme(bootswatch = "lumen"),
   header = page.header,
   search.page,
   psalm.singing.page,
