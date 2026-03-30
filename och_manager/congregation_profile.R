@@ -2,8 +2,8 @@
 congregation.page = tabPanel(
   "Congregation info",
   fluidRow(
-    column(1, actionButton("save.congregation", "Save changes")),
-    column(3, checkboxInput("congregation.share",
+    column(2, actionButton("save.congregation", "Save changes")),
+    column(8, checkboxInput("congregation.share",
                             "Share worship history data with other congregations"))
   ),
   fluidRow(
@@ -118,7 +118,6 @@ update.attributes = function(attribute.values, cognito.client, access.token) {
         attribute.updates[[length(attribute.updates) + 1]] = list(Name = "custom:longitude",
                                                                   Value = coords$long)
       }
-      showNotification("about to update attributes")
       cognito.client$update_user_attributes(UserAttributes = attribute.updates,
                                             AccessToken = access.token)
       showNotification("Update successful", type = "message")

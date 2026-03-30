@@ -48,6 +48,7 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
     return(bind_rows(df, next.page.df))
   } else {
     df %>%
+      filter(share) %>%
       dplyr::select(-c("share")) %>%
       mutate(is.me = congregation == current.user) %>%
       return()
