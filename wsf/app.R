@@ -6,6 +6,9 @@ library(RColorBrewer)
 library(paws)
 library(aws.signature)
 library(bslib)
+library(future)
+library(promises)
+future::plan(multisession)
 
 #### Useful initial settings ####
 

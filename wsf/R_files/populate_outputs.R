@@ -1,7 +1,8 @@
 #### Populate song search outputs ####
 
 # Function that creates a panel for a specific song
-create.song.panel = function(sid) {
+create.song.panel = function(wsf.db, sid, lyrics.search,
+                             lyrics.search.options) {
   song.row = songs.df %>% filter(song.id ==  sid)
   panel.title = tags$span(HTML(song.row$panel.name), display = "flex",
                           justify = "space-between")
@@ -21,9 +22,9 @@ create.song.panel = function(sid) {
                     tab.name = TabName) %>%
       mutate(non.english = grepl("[(]", tab.name)) %>%
       arrange(non.english, lyrics.order)
-    if(nchar(input$lyricsSearch) >= 4) {
-      parts = input$lyricsSearch
-      if(input$lyricsOptions == "Parts") {
+    if(nchar(lyrics.search) >= 4) {
+      parts = lyrics.search
+      if(lyrics.search.options == "Parts") {
         parts = unlist(strsplit(parts, " "))
         parts = parts[nchar(parts) > 0]
       }
@@ -61,48 +62,95 @@ get.song.list.results = reactive({
   results.df
 })
 
-# Populate the results list
-output$songList = renderUI({
-  results.df = get.song.list.results()
-  if(nrow(results.df) > 0 &
-     (nchar(input$songTitle) >= 3 |
-      nchar(input$artistName) >= 3 |
-      length(input$topicChoices) > 0 |
-      (input$scriptureBook != 0 &
-       (input$scriptureOptions == "Single verse" |
-        as.numeric(input$scriptureVerseStart) <= as.numeric(input$scriptureVerseEnd))) |
-      length(input$songbookChoices) > 0 |
-      length(input$arrangementChoices) > 0 |
-      length(input$languageChoices) > 0 |
-      length(input$keyChoices) > 0 |
-      length(input$timeChoices) > 0 |
-      length(input$meterChoices) > 0 |
-      nchar(input$tuneName) >= 3 |
-      nchar(input$lyricsSearch) >= 4)) {
+# Function to create song panels
+create.song.panels = function(wsf.db, results.df, entered.filter, progress.file,
+                              lyrics.search, lyrics.search.options) {
+  if(nrow(results.df) > 0 & entered.filter) {
     n.songs = nrow(results.df)
     if(n.songs >= 50) {
-      withProgress(message = "Loading songs", value = 0, {
-        song.panels =
-          lapply(1:n.songs,
-                 function(i) {
-                   sp = create.song.panel(results.df$song.id[i])
-                   incProgress(1 / n.songs)
-                   return(sp)
-                 })
-      })
+      song.panels =
+        lapply(1:n.songs,
+               function(i) {
+                 sp = create.song.panel(wsf.db, results.df$song.id[i],
+                                        lyrics.search, lyrics.search.options)
+                 writeLines(as.character(i / n.songs), con = progress.file)
+                 return(sp)
+               })
     } else {
       song.panels =
         lapply(1:n.songs,
                function(i) {
-                 sp = create.song.panel(results.df$song.id[i])
+                 sp = create.song.panel(wsf.db, results.df$song.id[i],
+                                        lyrics.search, lyrics.search.options)
                  return(sp)
                })
     }
     song.panels[["widths"]] = c(5, 7)
     song.panels[["well"]] = F
     song.panels[["id"]] = "songResultsPanel"
-    do.call(navlistPanel, song.panels)
+    return(do.call(navlistPanel, song.panels))
   }
+}
+
+# Reactive song panels
+song.panels.progress.file = reactiveVal(paste("progress_files/song_panels_",
+                                              session$token, ".txt", sep = ""))
+song.panels.prog = reactiveFileReader(100, session,
+                                      isolate(song.panels.progress.file()),
+  function(path) {
+    if(file.exists(path)) {
+      as.numeric(readLines(path, 1, warn = F))
+    }
+})
+song.panels.task = ExtendedTask$new(function(wsf.db, results.df, entered.filter,
+                                             lyrics.search,
+                                             lyrics.search.options) {
+  future_promise({
+    create.song.panels(wsf.db, results.df, entered.filter,
+                       isolate(song.panels.progress.file()), lyrics.search,
+                       lyrics.search.options)
+  })
+})
+song.panels.invocation = reactive({
+  r.df = get.song.list.results()
+  entered.filter = nchar(input$songTitle) >= 3 |
+                   nchar(input$artistName) >= 3 |
+                   length(input$topicChoices) > 0 |
+                   (input$scriptureBook != 0 &
+                    (input$scriptureOptions == "Single verse" |
+                     as.numeric(input$scriptureVerseStart) <= as.numeric(input$scriptureVerseEnd))) |
+                   length(input$songbookChoices) > 0 |
+                   length(input$arrangementChoices) > 0 |
+                   length(input$languageChoices) > 0 |
+                   length(input$keyChoices) > 0 |
+                   length(input$timeChoices) > 0 |
+                   length(input$meterChoices) > 0 |
+                   nchar(input$tuneName) >= 3 |
+                   nchar(input$lyricsSearch) >= 4
+  if(nrow(r.df) >= 50 & entered.filter) {
+    song.panels.progress.bar = shiny::Progress$new()
+    song.panels.progress.bar$set(message = "Loading songs", value = 0)
+    observe({
+      if(!is.null(song.panels.prog())) {
+        song.panels.progress.bar$set(value = song.panels.prog())
+        if(song.panels.prog() == 1) {
+          song.panels.progress.bar$close()
+          file.remove(song.panels.progress.file())
+        }
+      }
+    })
+  }
+  song.panels.task$invoke(wsf.db, r.df, entered.filter, input$lyricsSearch,
+                          input$lyricsOptions)
+})
+song.panels = reactive({
+  song.panels.invocation()
+  song.panels.task$result()
+})
+
+# Populate the results list
+output$songList = renderUI({
+  song.panels()
 })
 
 #### Populate psalm song outputs ####
