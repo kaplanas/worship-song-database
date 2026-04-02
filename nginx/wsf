@@ -6,7 +6,7 @@ server {
 	ssl_certificate /etc/nginx/cloudflare_certificate.pem;
 	ssl_certificate_key /etc/nginx/cloudflare_certificate.pem.key;
 
-	server_name wsf.worshipsongfinder.com;
+	server_name wsf.worshipsongfinder.com www.worshipsongfinder.com worshipsongfinder.com;
 	root /srv/shiny-server/wsf;
 
 	location / {
