@@ -409,7 +409,8 @@ data.dates.all = function(wh.df) {
 # Create the worship history table
 my.wh.table = function(wh.df) {
   wh.df %>%
-    filter(is.me) %>%
+    filter(is.me,
+           !is.na(song.label)) %>%
     group_by(song.label, song.title) %>%
     summarise(times.sung = n_distinct(worship.date),
               last.date = max(worship.date),
@@ -444,7 +445,7 @@ songs.per.sunday.me = function(wh.df) {
     df = wh.df %>%
       filter(is.me) %>%
       group_by(worship.date) %>%
-      summarise(n.songs = n_distinct(song.label),
+      summarise(n.songs = n_distinct(song.label, na.rm = T),
                 .groups = "drop") %>%
       ungroup() %>%
       group_by(n.songs) %>%
@@ -478,7 +479,7 @@ songs.per.sunday.all = function(wh.df) {
   color.pal.other = colour_ramp(c("#FFFFFF", color.other))
   df = wh.df %>%
     group_by(congregation.label, is.me, worship.date) %>%
-    summarise(n.songs = n_distinct(song.label),
+    summarise(n.songs = n_distinct(song.label, na.rm = T),
               .groups = "drop") %>%
     group_by(congregation.label) %>%
     mutate(mode.songs = fmode(n.songs),
