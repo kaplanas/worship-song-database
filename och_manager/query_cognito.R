@@ -39,7 +39,8 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
                congregation.label = if_else(is.na(city), congregation.label,
                                             paste(congregation.label, " (",
                                                   city, ", ", state, ")",
-                                                  sep = "")))
+                                                  sep = "")),
+               is.me = congregation == current.user)
     }
   )
   if(length(results$PaginationToken) > 0) {
@@ -47,10 +48,6 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
                              current.user, results$PaginationToken)
     return(bind_rows(df, next.page.df))
   } else {
-    df %>%
-      mutate(is.me = congregation == current.user) %>%
-      filter(share | is.me) %>%
-      dplyr::select(-c("share")) %>%
-      return()
+    return(df)
   }
 }

@@ -304,7 +304,7 @@ server <- function(input, output, session) {
         current.user(input$existing.username)
         user.attributes(svc$get_user(auth.result()$AuthenticationResult$AccessToken)$UserAttributes)
         congregations(get.users(svc, user.pool.id, date.placeholder, 
-                                current.user()))
+                                current.user()) %>% filter(share | is.me))
         current.dates(get.current.dates(och.db(), current.user()))
         song.table.task$invoke(och.db(), song.table.info)
       },
