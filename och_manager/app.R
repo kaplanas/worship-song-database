@@ -364,11 +364,11 @@ server <- function(input, output, session) {
       for(i in 1:nrow(input$wh.file)) {
         
         # Read in as a dataframe
-        if(grepl("xlsx?$", input$wh.file[i]$name)) {
+        if(grepl("xlsx?$", input$wh.file[[i,"name"]])) {
           wh.df = read_excel(input$wh.file[[i,"datapath"]], skip = 1,
                              col_names = c("WorshipDate", "Song"),
                              col_types = c("date", "text"))
-        } else if(grepl("csv$", input$wh.file[i]$name)) {
+        } else if(grepl("csv$", input$wh.file[[i,"name"]])) {
           wh.df = read.csv(input$wh.file[[i,"datapath"]], header = T)
         }
         wh.df$WorshipDate = as.Date(wh.df$WorshipDate)

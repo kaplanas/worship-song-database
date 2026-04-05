@@ -1,6 +1,6 @@
 upload.page = tabPanel(
   "Upload worship history",
-  uiOutput("wh.file.congregation.id"),
+  tags$div(tags$p(tags$b("Both file types have strict formatting requirements and will fail if they aren't exactly right.  See the help tab for more info."))),
   selectizeInput("wh.file.type", label = "File type:",
                  choices = c("Spreadsheet", "Bulletin")),
   fileInput("wh.file", label = "", multiple = T, width = "500px",
