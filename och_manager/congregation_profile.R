@@ -58,7 +58,7 @@ update.attribute.ui = function(attributes, session) {
         input.id = attribute.ids[[attribute$Name]]
         if(attribute$Name == "custom:share") {
           updateCheckboxInput(session, input.id,
-                              value = as.logical(attribute$Value))
+                              value = as.logical(as.numeric(attribute$Value)))
         } else if(attribute$Name == "custom:size") {
           updateSelectInput(session, input.id, selected = attribute$Value)
         } else if(attribute$Name %in% c("custom:praise", "custom:women") &
