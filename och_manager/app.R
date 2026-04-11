@@ -299,8 +299,13 @@ server <- function(input, output, session) {
                            user.pool.client.secret))
         showNotification("Successfully logged in; getting worship history...",
                          type = "message")
-        och.db(dynamodb(endpoint = "dynamodb.us-west-2.api.aws"))
-        s3.client(s3(endpoint = "https://s3.dualstack.us-west-2.amazonaws.com"))
+        if(Sys.getenv("AWS_USE_DUALSTACK_ENDPOINT") == "true") {
+          och.db(dynamodb(endpoint = "dynamodb.us-west-2.api.aws"))
+          s3.client(s3(endpoint = "https://s3.dualstack.us-west-2.amazonaws.com"))
+        } else {
+          och.db(dynamodb())
+          s3.client(s3())
+        }
         current.user(input$existing.username)
         user.attributes(svc$get_user(auth.result()$AuthenticationResult$AccessToken)$UserAttributes)
         congregations(get.users(svc, user.pool.id, date.placeholder, 
@@ -451,11 +456,15 @@ server <- function(input, output, session) {
           
           # If we didn't get any text, it's a scanned image and we have to use
           # Textract
-	  else {
+	        else {
             if(exists("textract_result")) {
               rm(textract_result)
             }
-            textract = textract(endpoint = "https://textract.us-west-2.api.aws")
+	          if(Sys.getenv("AWS_USE_DUALSTACK_ENDPOINT") == "true") {
+	            textract = textract(endpoint = "https://textract.us-west-2.api.aws")
+	          } else {
+	            textract = textract()
+	          }
             resp = textract$start_document_text_detection(
               DocumentLocation = list(
                 S3Object = list(Bucket = "worship-och-bulletins",
