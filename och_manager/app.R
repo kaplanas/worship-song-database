@@ -320,7 +320,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # Automatically update the UI based on the congregation profile we retrived
+  # Automatically update the UI based on the congregation profile we retrieved
   # from Cognito
   observe({ update.attribute.ui(user.attributes(), session) })
 

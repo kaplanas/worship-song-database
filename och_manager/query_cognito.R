@@ -3,9 +3,9 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
                      current.user, pagination.token = NULL) {
   results = cognito.session$list_users(UserPoolId = user.pool.id,
                                        PaginationToken = pagination.token)
-  attributes.of.interest = c("name", "custom:city", "custom:state",
-                             "custom:size", "custom:praise", "custom:women",
-                             "custom:share")
+  attributes.of.interest = c("name", "custom:service", "custom:city",
+                             "custom:state", "custom:size", "custom:praise",
+                             "custom:women", "custom:share")
   df = map_dfr(
     results$Users,
     function(user) {
@@ -29,7 +29,7 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
       if(ncol(temp.df) == 1) {
         temp.df$name = NA_character_
       }
-      for(a in c("name", "city", "state", "size")) {
+      for(a in c("name", "service", "city", "state", "size")) {
         if(!(a %in% colnames(temp.df))) {
           temp.df[[a]] = NA_character_
         }
@@ -44,6 +44,9 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
                                          name),
                congregation.label = gsub("^The ", "", congregation.label),
                congregation.label = str_trim(congregation.label),
+               congregation.label = if_else(is.na(service), congregation.label,
+                                            paste(congregation.label, service,
+                                                  sep = ", ")),
                congregation.label = if_else(is.na(city), congregation.label,
                                             paste(congregation.label, " (",
                                                   city, ", ", state, ")",

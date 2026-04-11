@@ -9,9 +9,12 @@ congregation.page = tabPanel(
   fluidRow(
     column(4,
            textInput("congregation.name", "Congregation name", width = "100%")),
-    column(4,
+    column(3,
+           textInput("congregation.service",
+                     "Which Sun. AM service? (if applicable)", width = "100%")),
+    column(2,
            textInput("congregation.email", "Congregation email", width = "100%")),
-    column(4,
+    column(3,
            textInput("congregation.website", "Congregation website", width = "100%"))
   ),
   fluidRow(
@@ -38,6 +41,7 @@ congregation.page = tabPanel(
 
 # Map between Cognito names for various fields and input IDs
 attribute.ids = list("name" = "congregation.name",
+                     "custom:service" = "congregation.service",
                      "email" = "congregation.email",
                      "website" = "congregation.website",
                      "custom:share" = "congregation.share",
