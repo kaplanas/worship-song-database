@@ -3,8 +3,10 @@ congregation.page = tabPanel(
   "Congregation info",
   fluidRow(
     column(2, actionButton("save.congregation", "Save changes")),
-    column(8, checkboxInput("congregation.share",
-                            "Share worship history data with other congregations"))
+    column(5, selectInput("congregation.sharing",
+                          "Share worship history data with other congregations?",
+                          c("Yes", "Anonymously", "No"), selected = "No",
+                          width = "100%"))
   ),
   fluidRow(
     column(4,
@@ -44,7 +46,6 @@ attribute.ids = list("name" = "congregation.name",
                      "custom:service" = "congregation.service",
                      "email" = "congregation.email",
                      "website" = "congregation.website",
-                     "custom:share" = "congregation.share",
                      "custom:street" = "congregation.street",
                      "custom:city" = "congregation.city",
                      "custom:state" = "congregation.state",
@@ -55,61 +56,60 @@ attribute.ids = list("name" = "congregation.name",
 
 # Function that updates the UI with the attributes retrieved from Cognito
 update.attribute.ui = function(attributes, session) {
-  walk(
-    attributes,
-    function(attribute) {
-      if(attribute$Name %in% names(attribute.ids)) {
-        input.id = attribute.ids[[attribute$Name]]
-        if(attribute$Name == "custom:share") {
-          updateCheckboxInput(session, input.id,
-                              value = as.logical(as.numeric(attribute$Value)))
-        } else if(attribute$Name == "custom:size") {
-          updateSelectInput(session, input.id, selected = attribute$Value)
-        } else if(attribute$Name %in% c("custom:praise", "custom:women") &
-                  attribute$Value != date.placeholder) {
-          updateAirDateInput(session, input.id, value = ymd(attribute$Value))
-        } else {
-          updateTextInput(session, input.id, value = attribute$Value)
-        }
+  temp.share = F
+  temp.anonymous = F
+  for(attribute in attributes) {
+    if(attribute$Name %in% names(attribute.ids)) {
+      input.id = attribute.ids[[attribute$Name]]
+      if(attribute$Name == "custom:size") {
+        updateSelectInput(session, input.id, selected = attribute$Value)
+      } else if(attribute$Name %in% c("custom:praise", "custom:women") &
+                attribute$Value != date.placeholder) {
+        updateAirDateInput(session, input.id, value = ymd(attribute$Value))
+      } else {
+        updateTextInput(session, input.id, value = attribute$Value)
       }
+    } else if(attribute$Name == "custom:share") {
+      temp.share = as.logical(as.numeric(attribute$Value))
+    } else if(attribute$Name == "custom:anonymous") {
+      temp.anonymous = as.logical(as.numeric(attribute$Value))
     }
-  )
+  }
+  sharing.option = "No"
+  if(temp.share) {
+    if(temp.anonymous) {
+      sharing.option = "Anonymously"
+    } else {
+      sharing.option = "Yes"
+    }
+  }
+  updateSelectInput(session, "congregation.sharing", selected = sharing.option)
 }
 
 # Function that updates user attributes in Cognito based on the selected input
 # options
-update.attributes = function(attribute.values, cognito.client, access.token) {
+update.attributes = function(attribute.values, sharing.value, cognito.client,
+                             access.token) {
   ids = names(attribute.ids)
   names(ids) = attribute.ids
   tryCatch(
     {
-      attribute.updates = map(
-        names(ids),
-        function(field) {
-          attribute.name = ids[[field]]
-          if(!is.null(attribute.values[[field]])) {
-            attribute.value = attribute.values[[field]]
-            if(field == "congregation.share") {
-              attribute.value = as.numeric(attribute.value)
-            } else if(field %in% c("congregation.praise",
-                                   "congregation.women")) {
-              attribute.value = as.numeric(format(attribute.value, "%Y%m%d"))
-            }
-            list(Name = attribute.name, Value = attribute.value)
-          }  else {
-            if(field %in% c("congregation.share", "congregation.praise",
-                            "congregation.women")) {
-              v = 0
-              if(field %in% c("congregation.praise", "congregation.women")) {
-                v = date.placeholder
-              }
-              list(Name = attribute.name, Value = v)
-            } else {
-              list(Name = attribute.name, Value = "")
-            }
+      attribute.updates = list()
+      attribute.deletions = c()
+      for(field in names(ids)) {
+        attribute.name = ids[[field]]
+        if(!is.null(attribute.values[[field]])) {
+          attribute.value = attribute.values[[field]]
+          if(field %in% c("congregation.praise", "congregation.women")) {
+            attribute.value = as.numeric(format(attribute.value, "%Y%m%d"))
           }
+          if(nchar(attribute.value) > 0) {
+            attribute.updates[[field]] = list(Name = attribute.name, Value = attribute.value)
+          }
+        } else {
+          attribute.deletions = c(attribute.deletions, attribute.name)
         }
-      )
+      }
       coords = data.frame(Street = attribute.values$congregation.street,
                           City = attribute.values$congregation.city,
                           State = attribute.values$congregation.state,
@@ -122,7 +122,24 @@ update.attributes = function(attribute.values, cognito.client, access.token) {
         attribute.updates[[length(attribute.updates) + 1]] = list(Name = "custom:longitude",
                                                                   Value = coords$long)
       }
+      temp.share = F
+      temp.anonymous = F
+      if(sharing.value == "Yes") {
+        temp.share = T
+        temp.anonymous = F
+      } else if(sharing.value == "Anonymously") {
+        temp.share = T
+        temp.anonymous = T
+      }
+      attribute.updates[[length(attribute.updates) + 1]] = list(Name = "custom:share",
+                                                                Value = as.numeric(temp.share))
+      attribute.updates[[length(attribute.updates) + 1]] = list(Name = "custom:anonymous",
+                                                                Value = as.numeric(temp.anonymous))
+      print(attribute.updates)
+      print(attribute.deletions)
       cognito.client$update_user_attributes(UserAttributes = attribute.updates,
+                                            AccessToken = access.token)
+      cognito.client$delete_user_attributes(UserAttributeNames = attribute.deletions,
                                             AccessToken = access.token)
       showNotification("Update successful", type = "message")
     },

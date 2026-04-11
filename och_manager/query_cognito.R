@@ -5,7 +5,7 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
                                        PaginationToken = pagination.token)
   attributes.of.interest = c("name", "custom:service", "custom:city",
                              "custom:state", "custom:size", "custom:praise",
-                             "custom:women", "custom:share")
+                             "custom:women", "custom:share", "custom:anonymous")
   df = map_dfr(
     results$Users,
     function(user) {
@@ -13,7 +13,7 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
       for(attribute in user$Attributes) {
         if(attribute$Name %in% attributes.of.interest) {
           col.name = gsub(".*:", "", attribute$Name)
-          if(attribute$Name %in% c("custom:share")) {
+          if(attribute$Name %in% c("custom:share", "custom:anonymous")) {
               temp.df[[col.name]] = as.logical(as.numeric(attribute$Value))
           } else if(attribute$Name %in% c("custom:praise", "custom:women")) {
             if(attribute$Value == date.placeholder) {
@@ -34,7 +34,7 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
           temp.df[[a]] = NA_character_
         }
       }
-      for(a in c("praise", "women", "share")) {
+      for(a in c("praise", "women", "share", "anonymous")) {
         if(!(a %in% colnames(temp.df))) {
           temp.df[[a]] = NA
         }

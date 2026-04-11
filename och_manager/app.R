@@ -309,7 +309,12 @@ server <- function(input, output, session) {
         current.user(input$existing.username)
         user.attributes(svc$get_user(auth.result()$AuthenticationResult$AccessToken)$UserAttributes)
         congregations(get.users(svc, user.pool.id, date.placeholder, 
-                                current.user()) %>% filter(share | is.me))
+                                current.user()) %>%
+                        filter(share | is.me) %>%
+                        mutate(congregation.label = if_else(anonymous,
+                                                            paste("Anonymous",
+                                                                  cumsum(anonymous)),
+                                                            congregation.label)))
         current.dates(get.current.dates(och.db(), current.user()))
         song.table.task$invoke(och.db(), song.table.info)
       },
@@ -327,7 +332,8 @@ server <- function(input, output, session) {
   # When the user attempts to update the congregation's profile, do that
   observeEvent(input$save.congregation, {
     update.attributes(lapply(set_names(attribute.ids),
-                             function(x) { input[[x]] }), svc,
+                             function(x) { input[[x]] }),
+                      input$congregation.sharing, svc,
                       auth.result()$AuthenticationResult$AccessToken)
   })
 
