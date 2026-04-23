@@ -41,8 +41,8 @@ get.users = function(cognito.session, user.pool.id, date.placeholder,
       }
       temp.df %>%
         mutate(anonymous = coalesce(anonymous, F),
-               congregation.label = gsub("Church( of Christ)?( (at|in))?", "",
-                                         name),
+               congregation.label = gsub("Church( of Christ)?( (at|in|on))?",
+                                         "", name),
                congregation.label = gsub("^The ", "", congregation.label),
                congregation.label = str_trim(congregation.label),
                congregation.label = if_else(is.na(service), congregation.label,
