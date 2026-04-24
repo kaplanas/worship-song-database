@@ -1,5 +1,6 @@
-.nav-pills {
-  height: 80vh;
+#songResultsPanel {
+  height: 80vh !important;
+  display: block !important;
   overflow-y: auto;
 }
 
