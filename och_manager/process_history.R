@@ -81,9 +81,16 @@ populate.processing.table = function(db, username, process.wh.date) {
             history.df[[field]] = NA
           }
         }
+        if(!("WorshipDate" %in% colnames(history.df))) {
+          history.df[["WorshipDate"]] = as.numeric(format(process.wh.date,
+                                                          "%Y%m%d"))
+        }
+        if(!("HistoryID" %in% colnames(history.df))) {
+          history.df[["HistoryID"]] = min.history.id
+        }
         history.df = history.df %>%
            dplyr::select(WorshipDate, HistoryID, RawLine, SundayMorning,
-	                 ProcessedRecord, SongID, SongInstanceID, Notes,
+                         ProcessedRecord, SongID, SongInstanceID, Notes,
                          NewSong, FileName)
         return(history.df)
       },
@@ -132,7 +139,8 @@ create.worship.history.hot = function(df, process.wh.date, song.labels,
                            rowHeaders = NULL, overflow = "visible",
                            selectCallback = T) %>%
     hot_context_menu(allowColEdit = F) %>%
-    hot_cols(colWidths = c(300, 80, 80, 300, 400, 300, 300), columnSorting = F) %>%
+    hot_cols(colWidths = c(300, 80, 80, 300, 400, 300, 300),
+             columnSorting = F) %>%
     hot_col(col = "Song", type = "dropdown", strict = T, renderer = "html",
             source = c("", song.labels$SongLabel)) %>%
     hot_col(col = "Song", renderer = htmlwidgets::JS("safeHtmlRenderer")) %>%
@@ -300,7 +308,8 @@ save.worship.history.table = function(reactive.worship.history.processing,
             if(!is.na(item.row[[field]])) {
               if(item.cols[field] %in% c("integer", "numeric")) {
                 item[[field]] = list(N = item.row[[field]])
-              } else if(item.cols[field] == "character") {
+              } else if(item.cols[field] == "character" &
+                        nchar(item.row[[field]])) {
                 item[[field]] = list(S = item.row[[field]])
               } else if(item.cols[field] == "logical") {
                 item[[field]] = list(BOOL = item.row[[field]])
