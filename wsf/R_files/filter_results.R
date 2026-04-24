@@ -44,10 +44,11 @@ if(nchar(input$songTitle) >= 3) {
     results.df = results.df %>%
       separate_rows(panel.name, sep = "<br/>") %>%
       mutate(panel.name = gsub("<[a-z]+/?>", "", panel.name)) %>%
-      filter(grepl(part, panel.name, ignore.case = T)) %>%
-      dplyr::select(song.id) %>%
-      distinct()
+      filter(grepl(part, panel.name, ignore.case = T))
   }
+  results.df = results.df %>%
+    dplyr::select(song.id) %>%
+    distinct()
 }
 
 # Filter by artist
