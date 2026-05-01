@@ -633,7 +633,7 @@ server <- function(input, output, session) {
   # underlying table accordingly
   observeEvent(input$process.worship.history, {
     update.worship.history.hot(input$process.worship.history$changes,
-	                       input$process.wh.date, song.tables()$song.labels,
+	                             input$process.wh.date, song.tables()$song.labels,
                                song.tables()$song.instance.labels,
                                worship.history.processing)
   })

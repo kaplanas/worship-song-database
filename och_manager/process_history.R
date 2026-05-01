@@ -204,11 +204,12 @@ update.worship.history.hot = function(change, process.wh.date,
           }
         }
       }
-      if(is.null(reactive.worship.history.processing$table)) {
+      if(is.null(reactive.worship.history.processing$table) |
+         nrow(reactive.worship.history.processing$table) == 0) {
         reactive.worship.history.processing$table =
           data.frame(HistoryID = as.numeric(paste(numeric.date, "0001",
                                             sep = "")),
-                     WorshipDate = numeric.date,
+                     WorshipDate = as.numeric(numeric.date),
                      RawLine = NA_character_,
                      SundayMorning = wday(process.wh.date, label = T) == "Sun",
                      ProcessedRecord = F, SongID = NA, SongInstanceID = NA,
@@ -278,7 +279,7 @@ save.worship.history.table = function(reactive.worship.history.processing,
                   NewSong, FileName)
   
   # If there were deletions, delete the items
-  if(length(reactive.worship.history.processing$changes$delete) > 0) {
+  if(reactive.worship.history.processing$changes$delete) {
     tryCatch(
       {
         for(history.id in reactive.worship.history.processing$changes$delete) {
