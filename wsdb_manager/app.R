@@ -204,6 +204,7 @@ server <- function(input, output, session) {
                            password = input$wsdb.password,
                            host = Sys.getenv("WSDB_HOST"), port = 3306))
         dbGetQuery(wsdb.con(), "SET NAMES utf8")
+        dbSendQuery(wsdb.con(), "SET SESSION group_concat_max_len = 1000000")
         showNotification("Login successful", type = "message")
       },
       error = function(err) {

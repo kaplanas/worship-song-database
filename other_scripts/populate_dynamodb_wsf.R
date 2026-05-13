@@ -111,7 +111,7 @@ write.to.dynamodb(song.instances.key.signatures.df,
 key.signatures.df = dbGetQuery(wsdb.con, "SELECT * FROM wsf.keysignatures")
 write.to.dynamodb(key.signatures.df,
                   c("KeySignatureID", "AccidentalID", "ModeID"),
-                  #c("PitchName", "AccidentalSymbol", "ModeName",
+                  c("PitchName", "AccidentalSymbol", "ModeName",
                     "KeySignatureString"),
                   c(),
                   "wsf_keysignatures")
