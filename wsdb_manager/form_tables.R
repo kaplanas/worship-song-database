@@ -744,6 +744,9 @@ save.form.table = function(form.table, changes, manage.id, db.con, dynamo.con,
                                                "amazonaws.com", sep = "."),
                               region = ""))
   }
+
+  # Return the ID (because it might be new).
+  return(id)
   
 }
 

@@ -390,20 +390,15 @@ server <- function(input, output, session) {
               row.elements$FileContents = read_file(input$lyrics.new.file$datapath)
             }
           }
-          save.form.table(ft, row.elements,
-                          input[[paste("manage", ft, "id", sep = ".")]],
-                          wsdb.con(), dynamo.db(), label.tables, aws.creds(),
-                          session)
+          new.id = save.form.table(ft, row.elements,
+                                   input[[paste("manage", ft, "id", sep = ".")]],
+                                   wsdb.con(), dynamo.db(), label.tables,
+                                   aws.creds(), session)
           form.refresh[[ft]] = T
           for(lt in form.table.info[[ft]]$related.label.tables) {
             label.refresh[[lt]] = T
           }
           for(s in form.table.info[[ft]]$related.selectors) {
-            new.id = input[[paste("manage", ft, "id", sep = ".")]]
-            if(new.id == -1) {
-              new.id = dbGetQuery(wsdb.con(),
-                                  "SELECT LAST_INSERT_ID() AS NEW_ID")$NEW_ID[1]
-            }
             selector.refresh[[s]] = new.id
           }
           if(form.table.info[[ft]]$related.processing.table) {
