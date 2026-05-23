@@ -279,7 +279,9 @@ save.worship.history.table = function(reactive.worship.history.processing,
                   NewSong, FileName)
   
   # If there were deletions, delete the items
-  if(reactive.worship.history.processing$changes$delete) {
+  if(length(reactive.worship.history.processing$changes$delete) > 0 &
+     !(class(reactive.worship.history.processing$change$delete[1]) == "logical" &
+       !reactive.worship.history.processing$changes$delete[1])) {
     tryCatch(
       {
         for(history.id in reactive.worship.history.processing$changes$delete) {
