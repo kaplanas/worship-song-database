@@ -197,7 +197,7 @@ update.worship.history.hot = function(change, process.wh.date,
           change.cell = NA
         } else {
           change.cell = song.instance.labels %>%
-            filter(SongInstanceLabel == as.character(change.cell)) %>%
+            filter(str_trim(SongInstanceLabel) == as.character(change.cell)) %>%
             pull(SongInstanceID)
           if(length(change.cell) == 0) {
             change.cell = NA

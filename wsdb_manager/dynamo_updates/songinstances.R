@@ -69,6 +69,13 @@ list(
                    JOIN wsdb.songinstances
                    ON psalmsongs.SongID = songinstances.SongID
               WHERE songinstances.SongInstanceID IN ({keys*}))",
+    och_songs =
+      "SELECT SongID, SongLabel
+       FROM och.song_labels
+       WHERE SongID IN
+             (SELECT songinstances.SongID
+              FROM wsdb.songinstances
+              WHERE songinstances.SongInstanceID IN ({keys*}))",
     och_songtitles =
       "SELECT SongID, SongTitles
        FROM och.song_titles
@@ -82,7 +89,11 @@ list(
        WHERE SongID IN
              (SELECT songinstances.SongID
               FROM wsdb.songinstances
-              WHERE songinstances.SongInstanceID IN ({keys*}))"
+              WHERE songinstances.SongInstanceID IN ({keys*}))",
+    och_songinstances =
+      "SELECT SongInstanceID, SongInstanceLabel
+       FROM och.songinstance_labels
+       WHERE SongInstanceID IN ({keys*})"
   ),
   multi = list(
     wsf_songinstances_arrangementtypes = list(

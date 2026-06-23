@@ -25,8 +25,8 @@ list(
                    JOIN wsf.songinstances_scripturereferences
                    ON songinstances.SongInstanceID = songinstances_scripturereferences.SongInstanceID
               WHERE songinstances_scripturereferences.ScriptureReferenceID IN ({keys*}))
-             OR MetricalPsalmID IN
-             (SELECT metricalpsalms_lyrics.MetricalPsalmID
+             OR PsalmSongID IN
+             (SELECT CONCAT('MP', metricalpsalms_lyrics.MetricalPsalmID)
               FROM wsdb.metricalpsalms_lyrics
                    JOIN wsdb.lyrics_scripturereferences
                    ON metricalpsalms_lyrics.LyricsID = lyrics_scripturereferences.LyricsID

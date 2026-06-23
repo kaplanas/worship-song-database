@@ -27,7 +27,7 @@ list(
       "SELECT *
        FROM wsf.psalmsongs
        WHERE PsalmSongID IN
-             (SELECT songinstances.SongID
+             (SELECT CONCAT('PS', psalmsongs.PsalmSongID)
               FROM wsdb.songinstances
                    JOIN wsdb.psalmsongs
                    ON songinstances.SongID = psalmsongs.SongID

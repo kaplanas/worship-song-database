@@ -153,12 +153,12 @@ write.to.dynamodb = function(df, n.fields, s.fields, b.fields, table.name) {
                   #c(),
                   #"och_songs")
 
-#songinstances.df = dbGetQuery(wsdb.con, "SELECT * FROM och.songinstance_labels")
-#write.to.dynamodb(songinstances.df,
-                  #c("SongInstanceID", "SongID"),
-                  #c("SongInstanceLabel"),
-                  #c(),
-                  #"och_songinstances")
+songinstances.df = dbGetQuery(wsdb.con, "SELECT * FROM och.songinstance_labels")
+write.to.dynamodb(songinstances.df,
+                  c("SongInstanceID", "SongID"),
+                  c("SongInstanceLabel"),
+                  c(),
+                  "och_songinstances")
 
 #song.titles.df = dbGetQuery(wsdb.con, "SELECT * FROM och.song_titles")
 #write.to.dynamodb(song.titles.df,
