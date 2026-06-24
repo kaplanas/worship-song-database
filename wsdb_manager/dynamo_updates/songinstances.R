@@ -91,7 +91,7 @@ list(
               FROM wsdb.songinstances
               WHERE songinstances.SongInstanceID IN ({keys*}))",
     och_songinstances =
-      "SELECT SongInstanceID, SongInstanceLabel
+      "SELECT SongInstanceID, SongID, SongInstanceLabel
        FROM och.songinstance_labels
        WHERE SongInstanceID IN ({keys*})"
   ),
