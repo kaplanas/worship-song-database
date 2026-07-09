@@ -106,9 +106,12 @@ server <- function(input, output, session) {
   # successfully)
   s3.client = reactiveVal(NULL)
 
-  # Reactive Textract progress file
-  textract.progress.file = reactiveVal(paste("progress_files/textract_",
-                                             session$token, ".txt", sep = ""))
+  # Reactive Textract progress prefix
+  textract.progress.prefix = reactiveVal(paste("progress_files/textract_",
+                                               session$token, sep = ""))
+  
+  # List to hold reactive file readers
+  wh.text = list()
 
   # Reactive song info tables
   song.table.task = ExtendedTask$new(function(db, st.info) {
@@ -455,9 +458,14 @@ server <- function(input, output, session) {
           temp.wh.text = gsub("^[[:space:]]+|[[:space:]]+$", "", temp.wh.text)
           temp.wh.text = temp.wh.text[temp.wh.text != ""]
           
+          # Name of the file we'll write to
+          temp.date = strftime(file.worship.date[i], "%Y-%m-%d")
+          progress.file.name = paste(textract.progress.prefix(), "_", temp.date,
+                                     ".csv", sep = "")
+          
           # If we got text, save it to the file
           if(length(temp.wh.text) > 0) {
-            writeLines(temp.wh.text, con = textract.progress.file())
+            writeLines(temp.wh.text, con = progress.file.name)
           }
           
           # If we didn't get any text, it's a scanned image and we have to use
@@ -515,13 +523,12 @@ server <- function(input, output, session) {
                 writeLines(wh.t, con = progress.file)
               })
             })
-            textract.wait.task$invoke(textract, resp$JobId,
-                                      textract.progress.file())
+            textract.wait.task$invoke(textract, resp$JobId, progress.file.name)
           }
 
           # When the extracted text is ready, it will be in this file
-          wh.text = reactiveFileReader(1000, session,
-                                       isolate(textract.progress.file()),
+          wh.text[[temp.date]] = reactiveFileReader(1000, session,
+                                                    isolate(progress.file.name),
             function(path) {
               if(file.exists(path)) {
                 t = readLines(path, warn = F)
@@ -531,12 +538,14 @@ server <- function(input, output, session) {
           })
           
           # Create a dataframe
+          env = new.env()
+          env[["i"]] = i
+          env[["temp.date"]] = temp.date
           observe({
-            if(!is.null(wh.text())) {
-              wh.df = data.frame(WorshipDate = rep(strftime(file.worship.date[i],
-                                                            "%Y-%m-%d"),
-                                                   length(wh.text())),
-                                 RawLine = wh.text())
+            if(!is.null(wh.text[[temp.date]]())) {
+              wh.df = data.frame(WorshipDate = rep(temp.date,
+                                                   length(wh.text[[temp.date]]())),
+                                 RawLine = wh.text[[temp.date]]())
 
               # Write the dataframe to S3 as a csv
               tryCatch(
@@ -557,7 +566,7 @@ server <- function(input, output, session) {
                 }
               )
 	    }
-          })
+          }, env = env)
          
         }
         
