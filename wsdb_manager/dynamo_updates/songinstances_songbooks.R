@@ -8,9 +8,9 @@ list(
       "SELECT SongInstanceID, SongID, NumEntries, HTML
        FROM wsf.songinstances
        WHERE SongInstanceID IN
-             (SELECT songinstances_songbooks.SongInstanceID
-              FROM wsf.songinstances_songbooks
-              WHERE songinstances_songbooks.SongbookEntryID IN ({keys*}))",
+             (SELECT songbookentries.SongInstanceID
+              FROM wsdb.songbookentries
+              WHERE songbookentries.SongbookEntryID IN ({keys*}))",
     wsf_psalmsongs =
       "SELECT *
        FROM wsf.psalmsongs
@@ -19,9 +19,16 @@ list(
               FROM wsdb.songinstances
                    JOIN wsdb.psalmsongs
                    ON songinstances.SongID = psalmsongs.SongID
-                   JOIN wsf.songinstances_songbooks
-                   ON songinstances.SongInstanceID = songinstances_songbooks.SongInstanceID
-              WHERE songinstances_songbooks.SongbookEntryID IN ({keys*}))"
+                   JOIN wsdb.songbookentries
+                   ON songinstances.SongInstanceID = songbookentries.SongInstanceID
+              WHERE songbookentries.SongbookEntryID IN ({keys*}))",
+    och_songinstances =
+      "SELECT SongInstanceID, SongID, SongInstanceLabel
+       FROM och.songinstance_labels
+       WHERE SongInstanceID IN
+             (SELECT songbookentries.SongInstanceID
+              FROM wsdb.songbookentries
+              WHERE songbookentries.SongbookEntryID IN ({keys*}))"
   ),
   delete = c("wsf_songinstances_songbooks")
 )
