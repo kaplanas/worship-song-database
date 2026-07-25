@@ -392,7 +392,7 @@ server <- function(input, output, session) {
         if(!input$wh.file.overwrite) {
           wh.df = wh.df %>%
             filter(!(WorshipDate %in% format(current.dates()$worship.date,
-                                             "%Y%m%d")))
+                                             "%Y-%m-%d")))
         }
         
         # Write the file to S3
