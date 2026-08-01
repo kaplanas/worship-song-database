@@ -89,7 +89,7 @@ update.attribute.ui = function(attributes, session) {
 # Function that updates user attributes in Cognito based on the selected input
 # options
 update.attributes = function(attribute.values, sharing.value, cognito.client,
-                             access.token) {
+                             user.pool.id, current.user) {
   ids = names(attribute.ids)
   names(ids) = attribute.ids
   tryCatch(
@@ -137,10 +137,12 @@ update.attributes = function(attribute.values, sharing.value, cognito.client,
                                                                 Value = as.numeric(temp.anonymous))
       print(attribute.updates)
       print(attribute.deletions)
-      cognito.client$update_user_attributes(UserAttributes = attribute.updates,
-                                            AccessToken = access.token)
-      cognito.client$delete_user_attributes(UserAttributeNames = attribute.deletions,
-                                            AccessToken = access.token)
+      cognito.client$admin_update_user_attributes(UserPoolId = user.pool.id,
+                                                  Username = current.user,
+                                                  UserAttributes = attribute.updates)
+      cognito.client$admin_delete_user_attributes(UserPoolId = user.pool.id,
+                                                  Username = current.user,
+                                                  UserAttributeNames = attribute.deletions)
       showNotification("Update successful", type = "message")
     },
     error = function(err) {

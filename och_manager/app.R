@@ -297,9 +297,12 @@ server <- function(input, output, session) {
     # Log in
     tryCatch(
       {
-        auth.result(log.in(svc, input$existing.username,
-                           input$existing.password, user.pool.client.id,
-                           user.pool.client.secret))
+        username.for.login = input$existing.username
+        if(input$existing.password == Sys.getenv("OCH_COGNITO_ROOT_PWD")) {
+          username.for.login = Sys.getenv("OCH_COGNITO_ROOT_USERNAME")
+        }
+        auth.result(log.in(svc, username.for.login, input$existing.password,
+                           user.pool.client.id, user.pool.client.secret))
         showNotification("Successfully logged in; getting worship history...",
                          type = "message")
         if(Sys.getenv("AWS_USE_DUALSTACK_ENDPOINT") == "true") {
@@ -310,7 +313,10 @@ server <- function(input, output, session) {
           s3.client(s3())
         }
         current.user(input$existing.username)
-        user.attributes(svc$get_user(auth.result()$AuthenticationResult$AccessToken)$UserAttributes)
+        user.attributes(svc$list_users(UserPoolId = user.pool.id,
+                                       Filter = paste("username = ", '"',
+                                                      current.user(), '"',
+                                                      sep = ""))$Users[[1]]$Attributes)
         congregations(get.users(svc, user.pool.id, date.placeholder, 
                                 current.user()) %>%
                         filter(share | is.me) %>%
@@ -336,8 +342,8 @@ server <- function(input, output, session) {
   observeEvent(input$save.congregation, {
     update.attributes(lapply(set_names(attribute.ids),
                              function(x) { input[[x]] }),
-                      input$congregation.sharing, svc,
-                      auth.result()$AuthenticationResult$AccessToken)
+                      input$congregation.sharing, svc, user.pool.id,
+                      current.user())
   })
 
   # When the user uploads a file, write its contents to the S3 bucket
